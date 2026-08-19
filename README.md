@@ -1,16 +1,55 @@
-# React + Vite
+# Career Prep Platform
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## Placement Copilot
 
-Currently, two official plugins are available:
+Placement Copilot is an AI-powered career preparation platform designed to help students prepare for internships and placements through personalized, AI-driven guidance.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+The platform aims to simplify the placement journey by providing resume analysis, job description matching, interview preparation, personalized learning roadmaps, and document-based question answering—all in a single application.
 
-## React Compiler
+---
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Planned Features
 
-## Expanding the ESLint configuration
+- AI Resume Analyzer (ATS score & improvement suggestions)
+- Resume vs Job Description Matcher
+- AI Interview Question Generator
+- Personalized Learning Roadmap
+- PDF Question Answering using Retrieval-Augmented Generation (RAG)
+- AI Career Assistant
+- User Dashboard for tracking placement preparation
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+---
+
+## Tech Stack
+
+### Frontend
+
+- React.js
+- JavaScript
+- Tailwind CSS
+
+### Backend
+
+- Node.js
+- Express.js
+
+### Database
+
+- PostgreSQL
+
+### AI & Tools
+
+- Gemini API
+- LangChain
+- FAISS / ChromaDB
+- PyMuPDF / pdfplumber
+
+---
+
+## AI Concepts
+
+- Large Language Models (LLMs)
+- Natural Language Processing (NLP)
+- Retrieval-Augmented Generation (RAG)
+- Semantic Search
+- Prompt Engineering
