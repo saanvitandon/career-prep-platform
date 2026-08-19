@@ -1,0 +1,317 @@
+@import "tailwindcss";
+
+:root {
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+
+  color: #0f172a;
+  background-color: #e8f1ff;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 320px;
+  min-height: 100%;
+  background-color: #e8f1ff;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.dark {
+  background-color: #0f172a !important;
+  color: #f8fafc;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+
+  background-color: #e8f1ff;
+
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+
+/* =========================================
+   PLACEMENT COPILOT — DARK MODE
+========================================= */
+
+
+/* =========================================
+   MAIN PAGE BACKGROUND
+========================================= */
+
+/*
+  Removes the light gradient used by the
+  light theme and replaces it completely.
+*/
+
+.dark html {
+  background-color: #0f172a !important;
+}
+
+.dark body {
+  background-color: #0f172a !important;
+  color: #f8fafc;
+}
+
+/*
+  Most of your pages use min-h-screen
+  with a gradient background.
+*/
+
+.dark .min-h-screen {
+  background-image: none !important;
+  background-color: #0f172a !important;
+}
+
+
+/* =========================================
+   WHITE SURFACES
+========================================= */
+
+.dark .bg-white {
+  background-color: #111827 !important;
+}
+
+
+/* =========================================
+   SLATE BACKGROUNDS
+========================================= */
+
+.dark .bg-slate-50 {
+  background-color: #0f172a !important;
+}
+
+.dark .bg-slate-50\/70 {
+  background-color: rgba(15, 23, 42, 0.7) !important;
+}
+
+.dark .bg-slate-100 {
+  background-color: #1e293b !important;
+}
+
+
+/* =========================================
+   BLUE BACKGROUNDS
+========================================= */
+
+.dark .bg-blue-50 {
+  background-color: #172554 !important;
+}
+
+.dark .bg-blue-50\/50 {
+  background-color: rgba(23, 37, 84, 0.5) !important;
+}
+
+.dark .bg-blue-50\/70 {
+  background-color: rgba(23, 37, 84, 0.7) !important;
+}
+
+.dark .bg-blue-100 {
+  background-color: #1e3a8a !important;
+}
+
+
+/* =========================================
+   TEXT
+========================================= */
+
+.dark .text-slate-900 {
+  color: #f8fafc !important;
+}
+
+.dark .text-slate-800 {
+  color: #f1f5f9 !important;
+}
+
+.dark .text-slate-700 {
+  color: #e2e8f0 !important;
+}
+
+.dark .text-slate-600 {
+  color: #cbd5e1 !important;
+}
+
+.dark .text-slate-500 {
+  color: #94a3b8 !important;
+}
+
+.dark .text-slate-400 {
+  color: #64748b !important;
+}
+
+
+/* =========================================
+   BORDERS
+========================================= */
+
+.dark .border-slate-200 {
+  border-color: #334155 !important;
+}
+
+.dark .border-slate-100 {
+  border-color: #1e293b !important;
+}
+
+.dark .border-blue-100 {
+  border-color: #1e3a8a !important;
+}
+
+
+/* =========================================
+   HOVER STATES
+========================================= */
+
+.dark .hover\:bg-slate-50:hover {
+  background-color: #1e293b !important;
+}
+
+.dark .hover\:text-slate-900:hover {
+  color: #f8fafc !important;
+}
+
+
+/* =========================================
+   ACTIVE SIDEBAR
+========================================= */
+
+.dark .bg-blue-50.text-blue-600 {
+  background-color: #172554 !important;
+  color: #60a5fa !important;
+}
+
+
+/* =========================================
+   INPUTS / TEXTAREAS
+========================================= */
+
+.dark input,
+.dark textarea {
+  background-color: #0f172a !important;
+  color: #e2e8f0 !important;
+  border-color: #334155 !important;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #64748b !important;
+}
+
+.dark input:focus,
+.dark textarea:focus {
+  background-color: #111827 !important;
+  border-color: #3b82f6 !important;
+}
+
+
+/* =========================================
+   DIVIDERS
+========================================= */
+
+.dark .bg-slate-200 {
+  background-color: #334155 !important;
+}
+
+
+/* =========================================
+   SHADOWS
+========================================= */
+
+.dark .shadow-sm {
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.3) !important;
+}
+
+
+/* =========================================
+   GREEN / SUCCESS
+========================================= */
+
+.dark .bg-green-50 {
+  background-color: #052e16 !important;
+}
+
+.dark .text-green-600 {
+  color: #4ade80 !important;
+}
+
+.dark .text-green-700 {
+  color: #86efac !important;
+}
+
+
+/* =========================================
+   AMBER / WARNING
+========================================= */
+
+.dark .bg-amber-50 {
+  background-color: #451a03 !important;
+}
+
+.dark .text-amber-600 {
+  color: #fbbf24 !important;
+}
+
+.dark .text-amber-700 {
+  color: #fcd34d !important;
+}
+
+
+/* =========================================
+   BLUE TEXT
+========================================= */
+
+.dark .text-blue-600 {
+  color: #60a5fa !important;
+}
+
+.dark .text-blue-700 {
+  color: #93c5fd !important;
+}
+
+
+/* =========================================
+   ICON / ACCENT BACKGROUNDS
+========================================= */
+
+.dark .bg-blue-50 .text-blue-600 {
+  color: #60a5fa !important;
+}
+
+
+/* =========================================
+   DARK MODE TRANSITIONS
+========================================= */
+
+.dark,
+.dark body,
+.dark .min-h-screen,
+.dark .bg-white,
+.dark .bg-slate-50,
+.dark .bg-slate-100,
+.dark .bg-blue-50 {
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
+}
