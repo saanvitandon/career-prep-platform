@@ -6,8 +6,6 @@ Placement Copilot is an AI-powered career preparation platform designed to help 
 
 The platform aims to simplify the placement journey by providing resume analysis, job description matching, interview preparation, personalized learning roadmaps, and document-based question answering—all in a single application.
 
----
-
 ## Planned Features
 
 - AI Resume Analyzer (ATS score & improvement suggestions)
@@ -17,8 +15,6 @@ The platform aims to simplify the placement journey by providing resume analysis
 - PDF Question Answering using Retrieval-Augmented Generation (RAG)
 - AI Career Assistant
 - User Dashboard for tracking placement preparation
-
----
 
 ## Tech Stack
 
@@ -43,8 +39,6 @@ The platform aims to simplify the placement journey by providing resume analysis
 - LangChain
 - FAISS / ChromaDB
 - PyMuPDF / pdfplumber
-
----
 
 ## AI Concepts
 
