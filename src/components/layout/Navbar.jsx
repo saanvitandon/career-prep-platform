@@ -1,6 +1,7 @@
 import { Bell, Moon, Sun } from "lucide-react";
 import { useTheme } from "../../context/ThemeContext";
 import { useLocation } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 
 const pageInfo = {
   "/dashboard": {
@@ -35,6 +36,17 @@ const pageInfo = {
 };
 
 function Navbar() {
+  const { user } = useAuth();
+
+  const displayName = user?.name || "Student";
+  const initials = displayName
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
   const location = useLocation();
   const { darkMode, toggleDarkMode } = useTheme();
 
@@ -93,7 +105,7 @@ function Navbar() {
           <div className="text-right">
 
             <p className="text-sm font-semibold text-slate-900">
-              Saanvi
+              {displayName}
             </p>
 
             <p className="text-xs text-slate-500">
@@ -103,7 +115,7 @@ function Navbar() {
           </div>
 
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-sm font-semibold text-blue-700">
-            S
+            {initials}
           </div>
 
         </div>

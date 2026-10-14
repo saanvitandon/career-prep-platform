@@ -10,14 +10,15 @@ import {
   FileText,
 } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 
 function Sidebar() {
+  const { logout } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    // Temporary frontend-only logout.
-    // Later this will clear authentication/session data.
-    navigate("/login");
+    logout();
+    navigate("/login", { replace: true });
   };
 
   return (
