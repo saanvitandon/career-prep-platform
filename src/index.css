@@ -1,15 +1,89 @@
 @import "tailwindcss";
 
+/* ==========================================
+   PLACEMENT COPILOT — PREMIUM DARK DESIGN
+   ========================================== */
+
 :root {
   font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
 
-  color: #0f172a;
-  background-color: #e8f1ff;
-
   font-synthesis: none;
   text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  color-scheme: dark;
+
+  /* Core surfaces */
+  --app-bg: #111112;
+  --surface: #19191b;
+  --surface-secondary: #222124;
+  --surface-tertiary: #292725;
+  --surface-hover: #302d2b;
+  --surface-elevated: #262426;
+
+  /* Typography */
+  --text-primary: #f1efeb;
+  --text-secondary: #b4afa8;
+  --text-muted: #89847e;
+  --text-subtle: #6f6b66;
+
+  /* Borders */
+  --border: #363331;
+  --border-strong: #494440;
+  --border-highlight: rgb(224 211 190 / 12%);
+
+  /* Restrained accent palette */
+  --accent: #b7a18a;
+  --accent-hover: #cbb69e;
+  --accent-soft: #393226;
+
+  --champagne: #b7a18a;
+  --champagne-soft: #393226;
+
+  --rose: #a77f79;
+  --rose-soft: #352927;
+
+  --sage: #82917d;
+  --sage-soft: #283029;
+
+  --silver: #a8a49d;
+  --silver-soft: #302f2d;
+
+  /* Buttons */
+  --button-bg: #c0aa91;
+  --button-hover: #d0bba2;
+  --button-text: #211e1a;
+
+  --button-secondary-bg: #292725;
+  --button-secondary-hover: #34312e;
+  --button-secondary-text: #e9e5df;
+
+  /* Forms */
+  --input-bg: #1d1c1c;
+  --input-border: #403c38;
+  --input-focus: #b7a18a;
+  --focus-ring: rgb(183 161 138 / 28%);
+
+  /* Depth */
+  --shadow-card:
+    0 8px 28px rgb(0 0 0 / 18%),
+    inset 0 1px 0 rgb(255 255 255 / 2%);
+
+  --shadow-elevated:
+    0 16px 45px rgb(0 0 0 / 28%),
+    inset 0 1px 0 rgb(255 255 255 / 3%);
+
+  /* Ambient lighting */
+  --glow-champagne: rgb(183 161 138 / 9%);
+  --glow-rose: rgb(167 127 121 / 8%);
+  --glow-sage: rgb(130 145 125 / 7%);
+
+  --radius-card: 20px;
 }
+
+/* Base reset */
 
 * {
   box-sizing: border-box;
@@ -18,32 +92,41 @@
 html {
   min-width: 320px;
   min-height: 100%;
-  background-color: #e8f1ff;
-  transition:
-    background-color 0.2s ease,
-    color 0.2s ease;
-}
-
-.dark {
-  background-color: #0f172a !important;
-  color: #f8fafc;
+  background: var(--app-bg);
+  color-scheme: dark;
+  scroll-behavior: smooth;
 }
 
 body {
-  margin: 0;
   min-width: 320px;
   min-height: 100vh;
-
-  background-color: #e8f1ff;
-
+  margin: 0;
+  background:
+    radial-gradient(
+      ellipse at 12% 0%,
+      rgb(183 161 138 / 4%),
+      transparent 34%
+    ),
+    radial-gradient(
+      ellipse at 95% 35%,
+      rgb(167 127 121 / 3.5%),
+      transparent 30%
+    ),
+    var(--app-bg);
+  color: var(--text-primary);
   transition:
-    background-color 0.2s ease,
-    color 0.2s ease;
+    background-color 220ms ease,
+    color 220ms ease;
+}
+
+#root {
+  min-height: 100vh;
 }
 
 button,
 input,
-textarea {
+textarea,
+select {
   font: inherit;
 }
 
@@ -51,267 +134,83 @@ button {
   cursor: pointer;
 }
 
-
-/* =========================================
-   PLACEMENT COPILOT — DARK MODE
-========================================= */
-
-
-/* =========================================
-   MAIN PAGE BACKGROUND
-========================================= */
-
-/*
-  Removes the light gradient used by the
-  light theme and replaces it completely.
-*/
-
-.dark html {
-  background-color: #0f172a !important;
+button:disabled {
+  cursor: not-allowed;
 }
 
-.dark body {
-  background-color: #0f172a !important;
-  color: #f8fafc;
+input,
+textarea,
+select {
+  max-width: 100%;
 }
 
-/*
-  Most of your pages use min-h-screen
-  with a gradient background.
-*/
-
-.dark .min-h-screen {
-  background-image: none !important;
-  background-color: #0f172a !important;
+::selection {
+  background: #665849;
+  color: #f7f3ec;
 }
 
+/* Keyboard accessibility */
 
-/* =========================================
-   WHITE SURFACES
-========================================= */
-
-.dark .bg-white {
-  background-color: #111827 !important;
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
 }
 
-
-/* =========================================
-   SLATE BACKGROUNDS
-========================================= */
-
-.dark .bg-slate-50 {
-  background-color: #0f172a !important;
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
 }
 
-.dark .bg-slate-50\/70 {
-  background-color: rgba(15, 23, 42, 0.7) !important;
-}
+/* Consistent form transitions */
 
-.dark .bg-slate-100 {
-  background-color: #1e293b !important;
-}
-
-
-/* =========================================
-   BLUE BACKGROUNDS
-========================================= */
-
-.dark .bg-blue-50 {
-  background-color: #172554 !important;
-}
-
-.dark .bg-blue-50\/50 {
-  background-color: rgba(23, 37, 84, 0.5) !important;
-}
-
-.dark .bg-blue-50\/70 {
-  background-color: rgba(23, 37, 84, 0.7) !important;
-}
-
-.dark .bg-blue-100 {
-  background-color: #1e3a8a !important;
-}
-
-
-/* =========================================
-   TEXT
-========================================= */
-
-.dark .text-slate-900 {
-  color: #f8fafc !important;
-}
-
-.dark .text-slate-800 {
-  color: #f1f5f9 !important;
-}
-
-.dark .text-slate-700 {
-  color: #e2e8f0 !important;
-}
-
-.dark .text-slate-600 {
-  color: #cbd5e1 !important;
-}
-
-.dark .text-slate-500 {
-  color: #94a3b8 !important;
-}
-
-.dark .text-slate-400 {
-  color: #64748b !important;
-}
-
-
-/* =========================================
-   BORDERS
-========================================= */
-
-.dark .border-slate-200 {
-  border-color: #334155 !important;
-}
-
-.dark .border-slate-100 {
-  border-color: #1e293b !important;
-}
-
-.dark .border-blue-100 {
-  border-color: #1e3a8a !important;
-}
-
-
-/* =========================================
-   HOVER STATES
-========================================= */
-
-.dark .hover\:bg-slate-50:hover {
-  background-color: #1e293b !important;
-}
-
-.dark .hover\:text-slate-900:hover {
-  color: #f8fafc !important;
-}
-
-
-/* =========================================
-   ACTIVE SIDEBAR
-========================================= */
-
-.dark .bg-blue-50.text-blue-600 {
-  background-color: #172554 !important;
-  color: #60a5fa !important;
-}
-
-
-/* =========================================
-   INPUTS / TEXTAREAS
-========================================= */
-
-.dark input,
-.dark textarea {
-  background-color: #0f172a !important;
-  color: #e2e8f0 !important;
-  border-color: #334155 !important;
-}
-
-.dark input::placeholder,
-.dark textarea::placeholder {
-  color: #64748b !important;
-}
-
-.dark input:focus,
-.dark textarea:focus {
-  background-color: #111827 !important;
-  border-color: #3b82f6 !important;
-}
-
-
-/* =========================================
-   DIVIDERS
-========================================= */
-
-.dark .bg-slate-200 {
-  background-color: #334155 !important;
-}
-
-
-/* =========================================
-   SHADOWS
-========================================= */
-
-.dark .shadow-sm {
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.3) !important;
-}
-
-
-/* =========================================
-   GREEN / SUCCESS
-========================================= */
-
-.dark .bg-green-50 {
-  background-color: #052e16 !important;
-}
-
-.dark .text-green-600 {
-  color: #4ade80 !important;
-}
-
-.dark .text-green-700 {
-  color: #86efac !important;
-}
-
-
-/* =========================================
-   AMBER / WARNING
-========================================= */
-
-.dark .bg-amber-50 {
-  background-color: #451a03 !important;
-}
-
-.dark .text-amber-600 {
-  color: #fbbf24 !important;
-}
-
-.dark .text-amber-700 {
-  color: #fcd34d !important;
-}
-
-
-/* =========================================
-   BLUE TEXT
-========================================= */
-
-.dark .text-blue-600 {
-  color: #60a5fa !important;
-}
-
-.dark .text-blue-700 {
-  color: #93c5fd !important;
-}
-
-
-/* =========================================
-   ICON / ACCENT BACKGROUNDS
-========================================= */
-
-.dark .bg-blue-50 .text-blue-600 {
-  color: #60a5fa !important;
-}
-
-
-/* =========================================
-   DARK MODE TRANSITIONS
-========================================= */
-
-.dark,
-.dark body,
-.dark .min-h-screen,
-.dark .bg-white,
-.dark .bg-slate-50,
-.dark .bg-slate-100,
-.dark .bg-blue-50 {
+input,
+textarea,
+select {
   transition:
-    background-color 0.2s ease,
-    border-color 0.2s ease,
-    color 0.2s ease;
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+/* Subtle scrollbars */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #494440 transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: #494440;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #696057;
+  background-clip: padding-box;
+}
+
+/* Respect reduced-motion preferences */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }

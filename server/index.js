@@ -8,6 +8,7 @@ import { pool } from "./db.js";
 import { authMiddleware } from "./middleware/authMiddleware.js";
 import resumeRoutes from "./routes/resume.js";
 import { GoogleGenAI } from "@google/genai";
+import pdfAssistantRoutes from "./routes/pdfAssistant.js";
 
 dotenv.config();
 
@@ -30,7 +31,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/interview", interviewRoutes);
 
 app.use("/api/resume", resumeRoutes);
-
+app.use("/api/pdf", pdfAssistantRoutes);
 app.use("/api/roadmap", roadmapRoutes);
 
 // Basic health-check route
@@ -57,6 +58,7 @@ app.get("/api/db-test", async (req, res) => {
   }
 });
 
+
 app.get("/api/dashboard", authMiddleware, async (req, res) => {
   try {
     const userId = req.user.userId;
@@ -81,6 +83,8 @@ app.get("/api/dashboard", authMiddleware, async (req, res) => {
       roadmapResult,
       resumeActivityResult,
       matchActivityResult,
+      interviewActivityResult,
+      pdfActivityResult,
     ] = await Promise.all([
       pool.query(
         `SELECT
@@ -136,6 +140,29 @@ app.get("/api/dashboard", authMiddleware, async (req, res) => {
          LIMIT 5`,
         [userId]
       ),
+
+      pool.query(
+        `SELECT id, target_role, difficulty, question_type, created_at
+         FROM interview_sessions
+         WHERE user_id = $1
+         ORDER BY created_at DESC, id DESC
+         LIMIT 5`,
+        [userId]
+      ),
+
+      pool.query(
+        `SELECT
+          m.id,
+          m.question,
+          m.created_at,
+          d.file_name
+        FROM pdf_assistant_messages m
+        JOIN pdf_documents d ON d.id = m.document_id
+        WHERE m.user_id = $1
+        ORDER BY m.created_at DESC, m.id DESC
+        LIMIT 5`,
+        [userId]
+      ),
     ]);
 
     const user = userResult.rows[0];
@@ -163,7 +190,28 @@ app.get("/api/dashboard", authMiddleware, async (req, res) => {
       createdAt: item.created_at,
     }));
 
-    const recentActivity = [...resumeActivity, ...matchActivity]
+    const interviewActivity = interviewActivityResult.rows.map((item) => ({
+      id: `interview-${item.id}`,
+      type: "interview_session",
+      title: "Interview practice session",
+      description: `${item.target_role} · ${item.difficulty} · ${item.question_type}`,
+      createdAt: item.created_at,
+    }));
+
+    const pdfActivity = pdfActivityResult.rows.map((item) => ({
+      id: `pdf-${item.id}`,
+      type: "pdf_assistant",
+      title: "PDF Assistant question",
+      description: `${item.file_name} · ${item.question}`,
+      createdAt: item.created_at,
+    }));
+
+    const recentActivity = [
+      ...resumeActivity,
+      ...matchActivity,
+      ...interviewActivity,
+      ...pdfActivity,
+    ]
       .sort(
         (a, b) =>
           new Date(b.createdAt).getTime() -
@@ -204,6 +252,7 @@ app.get("/api/dashboard", authMiddleware, async (req, res) => {
     });
   }
 });
+
 
 
 app.get("/api/gemini-test", async (req, res) => {

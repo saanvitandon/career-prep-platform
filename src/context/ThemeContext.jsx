@@ -1,41 +1,26 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect } from "react";
 
 const ThemeContext = createContext();
 
 export function ThemeProvider({ children }) {
-  const [darkMode, setDarkMode] = useState(() => {
-    const savedTheme = localStorage.getItem("placement-theme");
-
-    if (savedTheme) {
-      return savedTheme === "dark";
-    }
-
-    return false;
-  });
-
   useEffect(() => {
     const root = document.documentElement;
 
-    if (darkMode) {
-      root.classList.add("dark");
-      localStorage.setItem("placement-theme", "dark");
-    } else {
-      root.classList.remove("dark");
-      localStorage.setItem("placement-theme", "light");
-    }
-  }, [darkMode]);
+    root.classList.add("dark");
+    root.style.colorScheme = "dark";
 
-  const toggleDarkMode = () => {
-    setDarkMode((previous) => !previous);
+    // Keep the existing preference key compatible with the app.
+    localStorage.setItem("placement-theme", "dark");
+  }, []);
+
+  // Dark mode is permanent; there is no theme toggle.
+  const value = {
+    darkMode: true,
+    toggleDarkMode: () => {},
   };
 
   return (
-    <ThemeContext.Provider
-      value={{
-        darkMode,
-        toggleDarkMode,
-      }}
-    >
+    <ThemeContext.Provider value={value}>
       {children}
     </ThemeContext.Provider>
   );

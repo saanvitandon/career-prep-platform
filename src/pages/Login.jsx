@@ -7,9 +7,14 @@ import {
   Eye,
   EyeOff,
   ArrowRight,
+  Check,
+  ShieldCheck,
+  AlertCircle,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 function Login() {
   const navigate = useNavigate();
@@ -17,6 +22,8 @@ function Login() {
 
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -29,6 +36,8 @@ function Login() {
       ...previous,
       [name]: value,
     }));
+
+    if (error) setError("");
   };
 
   const handleSubmit = async (event) => {
@@ -37,9 +46,10 @@ function Login() {
     if (loading) return;
 
     setLoading(true);
+    setError("");
 
     try {
-      const response = await fetch("http://localhost:5000/api/auth/login", {
+      const response = await fetch(`${API_URL}/api/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -53,23 +63,20 @@ function Login() {
       const data = await response.json();
 
       if (!response.ok) {
-        alert(data.message || "Login failed. Please check your credentials.");
+        setError(data.message || "Login failed. Please check your credentials.");
         return;
       }
 
       if (!data.token || !data.user) {
-        alert("Login response is incomplete. Please try again.");
+        setError("Login response is incomplete. Please try again.");
         return;
       }
 
-      // Update AuthContext and persist the session.
       login(data.token, data.user);
-
-      // Redirect to the dashboard after successful login.
       navigate("/dashboard", { replace: true });
-    } catch (error) {
-      console.error("Login error:", error);
-      alert(
+    } catch (err) {
+      console.error("Login error:", err);
+      setError(
         "Unable to connect to the server. Please ensure the backend is running."
       );
     } finally {
@@ -78,223 +85,198 @@ function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-slate-50 to-blue-100/60">
-      <div className="flex min-h-screen items-center justify-center px-6 py-4">
-        <div className="grid w-full max-w-5xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_20px_60px_rgba(15,23,42,0.08)] lg:max-h-[calc(100vh-2rem)] lg:grid-cols-2">
+    <div className="relative min-h-screen overflow-hidden bg-[#171614] px-4 py-5 text-[#F0ECE5] sm:px-6 sm:py-8">
+      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div className="absolute -right-32 -top-32 h-96 w-96 rounded-full bg-[radial-gradient(circle,rgba(173,135,91,0.10),transparent_70%)] blur-3xl" />
+        <div className="absolute -bottom-40 -left-32 h-96 w-96 rounded-full bg-[radial-gradient(circle,rgba(135,145,119,0.06),transparent_70%)] blur-3xl" />
+      </div>
 
-          {/* LEFT — BRANDING */}
-          <div className="relative hidden overflow-hidden bg-blue-600 p-9 lg:flex lg:flex-col lg:justify-between">
-            {/* Decorative circles */}
-            <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-blue-500/40" />
-            <div className="absolute -bottom-32 -left-20 h-80 w-80 rounded-full bg-blue-700/40" />
+      <div className="relative mx-auto grid min-h-[calc(100vh-2.5rem)] w-full max-w-6xl overflow-hidden rounded-[28px] border border-[#403B35] bg-[#1E1C19] shadow-[0_25px_80px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(255,255,255,0.035)] lg:min-h-[calc(100vh-4rem)] lg:grid-cols-[0.92fr_1.08fr]">
+        {/* Branding panel */}
+        <div className="relative hidden flex-col justify-between overflow-hidden border-r border-[#403B35] bg-gradient-to-br from-[#29251F] via-[#211F1B] to-[#191817] p-10 lg:flex xl:p-12">
+          <div className="pointer-events-none absolute -right-20 -top-16 h-72 w-72 rounded-full border border-[#C5A984]/10" />
+          <div className="pointer-events-none absolute -right-10 -top-8 h-64 w-64 rounded-full bg-[radial-gradient(circle,rgba(197,169,132,0.09),transparent_70%)]" />
+          <div className="pointer-events-none absolute -bottom-20 -left-16 h-72 w-72 rounded-full bg-[radial-gradient(circle,rgba(135,145,119,0.08),transparent_70%)]" />
 
-            {/* Logo */}
-            <div className="relative flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-blue-600">
-                <Sparkles size={20} />
-              </div>
+          <Branding />
 
-              <div>
-                <h1 className="text-base font-bold text-white">
-                  Placement
-                </h1>
-                <p className="text-xs font-medium text-blue-100">
-                  Copilot
-                </p>
-              </div>
-            </div>
+          <div className="relative my-12">
+            <span className="inline-flex items-center gap-2 rounded-full border border-[#65513C]/70 bg-[#332A21]/70 px-3 py-1.5 text-xs font-medium text-[#D8BD98]">
+              <Sparkles size={13} />
+              YOUR AI-POWERED CAREER COMPANION
+            </span>
 
-            {/* Main message */}
-            <div className="relative">
-              <p className="text-sm font-medium text-blue-100">
-                Your AI-powered career companion
-              </p>
+            <h2 className="mt-6 max-w-md text-4xl font-semibold leading-[1.15] tracking-[-0.04em] xl:text-5xl">
+              Your future
+              <br />
+              looks{" "}
+              <span className="bg-gradient-to-r from-[#E7D8C1] via-[#C5A984] to-[#A99175] bg-clip-text text-transparent">
+                promising.
+              </span>
+            </h2>
 
-              <h2 className="mt-3 max-w-md text-4xl font-bold leading-tight tracking-tight text-white">
-                Prepare smarter.
-                <br />
-                Get placement ready.
-              </h2>
-
-              <p className="mt-4 max-w-md text-sm leading-6 text-blue-100">
-                Analyze your resume, match job opportunities, practice
-                interviews, build your roadmap, and learn from your own
-                documents — all in one place.
-              </p>
-
-              {/* Feature list */}
-              <div className="mt-6 space-y-3">
-                <Feature text="AI-powered resume analysis" />
-                <Feature text="Personalized interview preparation" />
-                <Feature text="Smart learning roadmaps" />
-              </div>
-            </div>
-
-            {/* Bottom */}
-            <p className="relative text-xs text-blue-200">
-              Built for students, powered by AI.
+            <p className="mt-5 max-w-md text-sm leading-7 text-[#AAA093]">
+              Prepare for placements with tools that help you understand your
+              strengths, improve your skills, and feel more confident about
+              what's next.
             </p>
+
+            <div className="mt-8 space-y-4">
+              <Feature text="AI-powered resume analysis" />
+              <Feature text="Personalized interview preparation" />
+              <Feature text="Learning roadmaps built around your goals" />
+            </div>
+
+            <div className="mt-9 flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-[#A4B49A]" />
+              <span className="text-xs text-[#AAA093]">
+                One step closer to your goals
+              </span>
+            </div>
           </div>
 
-          {/* RIGHT — LOGIN FORM */}
-          <div className="flex items-center justify-center px-8 py-6 sm:px-10 sm:py-7">
-            <div className="w-full max-w-md">
+          <Footer />
+        </div>
 
-              {/* Mobile logo */}
-              <div className="mb-8 flex items-center gap-3 lg:hidden">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white">
-                  <Sparkles size={20} />
-                </div>
+        {/* Login form */}
+        <div className="flex items-center justify-center px-5 py-10 sm:px-10 lg:px-12 xl:px-16">
+          <div className="w-full max-w-md">
+            <div className="mb-10 lg:hidden">
+              <Branding />
+            </div>
 
-                <div>
-                  <h1 className="text-base font-bold text-slate-900">
-                    Placement
-                  </h1>
-                  <p className="text-xs font-medium text-slate-500">
-                    Copilot
-                  </p>
-                </div>
-              </div>
+            <div>
+              <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#C5A984]">
+                WELCOME BACK
+              </span>
 
-              {/* Heading */}
-              <div>
-                <h2 className="text-2xl font-bold tracking-tight text-slate-900">
-                  Welcome back
-                </h2>
+              <h2 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-[#F0ECE5] sm:text-4xl">
+                Let's get you in.
+              </h2>
 
-                <p className="mt-2 text-sm text-slate-500">
-                  Sign in to continue your placement preparation.
-                </p>
-              </div>
-
-              {/* Form */}
-              <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-                {/* Email */}
-                <div>
-                  <label
-                    htmlFor="email"
-                    className="text-sm font-medium text-slate-700"
-                  >
-                    Email address
-                  </label>
-
-                  <div className="relative mt-2">
-                    <Mail
-                      size={17}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
-                    />
-
-                    <input
-                      id="email"
-                      type="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleChange}
-                      placeholder="you@example.com"
-                      autoComplete="email"
-                      required
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-sm text-slate-700 outline-none transition-all placeholder:text-slate-400 focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-50"
-                    />
-                  </div>
-                </div>
-
-                {/* Password */}
-                <div>
-                  <div className="flex items-center justify-between">
-                    <label
-                      htmlFor="password"
-                      className="text-sm font-medium text-slate-700"
-                    >
-                      Password
-                    </label>
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        alert("Password reset is not available yet.")
-                      }
-                      className="text-xs font-medium text-blue-600 hover:text-blue-700"
-                    >
-                      Forgot password?
-                    </button>
-                  </div>
-
-                  <div className="relative mt-2">
-                    <Lock
-                      size={17}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
-                    />
-
-                    <input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      name="password"
-                      value={formData.password}
-                      onChange={handleChange}
-                      placeholder="Enter your password"
-                      autoComplete="current-password"
-                      required
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-11 pr-11 text-sm text-slate-700 outline-none transition-all placeholder:text-slate-400 focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-50"
-                    />
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setShowPassword((previous) => !previous)
-                      }
-                      aria-label={showPassword ? "Hide password" : "Show password"}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-slate-400 hover:text-slate-600"
-                    >
-                      {showPassword ? (
-                        <EyeOff size={17} />
-                      ) : (
-                        <Eye size={17} />
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Submit */}
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-blue-700 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {loading ? "Signing in..." : "Sign in"}
-                  {!loading && <ArrowRight size={17} />}
-                </button>
-              </form>
-
-              {/* Divider */}
-              <div className="my-5 flex items-center gap-4">
-                <div className="h-px flex-1 bg-slate-200" />
-                <span className="text-xs text-slate-400">or</span>
-                <div className="h-px flex-1 bg-slate-200" />
-              </div>
-
-              {/* Demo button */}
-              <button
-                type="button"
-                onClick={() =>
-                  alert("Demo login is not configured yet. Please sign in with your account.")
-                }
-                className="w-full rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
-              >
-                Continue as demo user
-              </button>
-
-              {/* Register */}
-              <p className="mt-5 text-center text-sm text-slate-500">
-                Don't have an account?
-                <button
-                  type="button"
-                  onClick={() => navigate("/register")}
-                  className="ml-1 font-semibold text-blue-600 hover:text-blue-700"
-                >
-                  Create one
-                </button>
+              <p className="mt-3 text-sm leading-6 text-[#AAA093]">
+                Sign in to pick up where you left off.
               </p>
             </div>
+
+            {error && (
+              <div
+                role="alert"
+                className="mt-6 flex items-start gap-3 rounded-xl border border-[#744540] bg-[#332321] p-3.5 text-sm text-[#E7B2A9]"
+              >
+                <AlertCircle size={17} className="mt-0.5 shrink-0" />
+                <p className="leading-6">{error}</p>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+              <FormField label="Email address" htmlFor="email">
+                <div className="relative">
+                  <Mail
+                    size={17}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-[#81796F]"
+                  />
+                  <input
+                    id="email"
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    placeholder="you@example.com"
+                    autoComplete="email"
+                    required
+                    className="w-full rounded-xl border border-[#403B35] bg-[#191817] py-3.5 pl-11 pr-4 text-sm text-[#F0ECE5] outline-none transition placeholder:text-[#746D63] focus:border-[#9B7B53] focus:ring-4 focus:ring-[#C5A984]/10"
+                  />
+                </div>
+              </FormField>
+
+              <FormField label="Password" htmlFor="password">
+                <div className="relative">
+                  <Lock
+                    size={17}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-[#81796F]"
+                  />
+                  <input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    name="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    placeholder="Enter your password"
+                    autoComplete="current-password"
+                    required
+                    className="w-full rounded-xl border border-[#403B35] bg-[#191817] py-3.5 pl-11 pr-12 text-sm text-[#F0ECE5] outline-none transition placeholder:text-[#746D63] focus:border-[#9B7B53] focus:ring-4 focus:ring-[#C5A984]/10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((previous) => !previous)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-[#81796F] transition hover:bg-[#292621] hover:text-[#D8BD98]"
+                  >
+                    {showPassword ? (
+                      <EyeOff size={17} />
+                    ) : (
+                      <Eye size={17} />
+                    )}
+                  </button>
+                </div>
+              </FormField>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#D8C1A0] bg-gradient-to-br from-[#D8C1A0] to-[#B39470] px-5 py-3.5 text-sm font-semibold text-[#241E17] shadow-[0_5px_20px_rgba(160,126,86,0.10)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {loading ? (
+                  <>
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#241E17]/30 border-t-[#241E17]" />
+                    Signing in...
+                  </>
+                ) : (
+                  <>
+                    Sign in
+                    <ArrowRight size={17} />
+                  </>
+                )}
+              </button>
+            </form>
+
+            <div className="my-7 flex items-center gap-4">
+              <div className="h-px flex-1 bg-[#35312B]" />
+              <span className="text-xs text-[#746D63]">SECURE ACCESS</span>
+              <div className="h-px flex-1 bg-[#35312B]" />
+            </div>
+
+            <div className="flex items-start gap-3 rounded-xl border border-[#35312B] bg-[#191817] p-4">
+              <ShieldCheck
+                size={18}
+                className="mt-0.5 shrink-0 text-[#A4B49A]"
+              />
+              <div>
+                <p className="text-sm font-medium text-[#E9E2D8]">
+                  Your workspace awaits
+                </p>
+                <p className="mt-1 text-xs leading-5 text-[#928A80]">
+                  Sign in to access your saved progress, resume tools, and
+                  interview preparation.
+                </p>
+              </div>
+            </div>
+
+            <p className="mt-7 text-center text-sm text-[#928A80]">
+              Don't have an account?
+              <button
+                type="button"
+                onClick={() => navigate("/register")}
+                className="ml-1.5 font-semibold text-[#D8BD98] transition hover:text-[#F0ECE5]"
+              >
+                Create an account
+              </button>
+            </p>
+
+            <p className="mt-10 text-center text-xs text-[#746D63]">
+              Your career journey, one step at a time.
+            </p>
           </div>
         </div>
       </div>
@@ -302,16 +284,54 @@ function Login() {
   );
 }
 
-/* Feature bullet */
+function Branding() {
+  return (
+    <div className="relative flex items-center gap-3">
+      <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#65513C]/70 bg-gradient-to-br from-[#D8C1A0] to-[#A88A65] text-[#241E17]">
+        <Sparkles size={21} />
+      </div>
+      <div>
+        <h1 className="text-base font-bold tracking-tight text-[#F0ECE5]">
+          Placement Copilot
+        </h1>
+        <p className="mt-0.5 text-xs text-[#928A80]">
+          Your next chapter starts here
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function Feature({ text }) {
   return (
     <div className="flex items-center gap-3">
-      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-white/15 text-white">
-        <span className="text-xs">✓</span>
+      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[#465B45] bg-[#293328] text-[#B5C4AA]">
+        <Check size={13} />
       </div>
-
-      <span className="text-sm text-blue-50">{text}</span>
+      <span className="text-sm text-[#C9C1B6]">{text}</span>
     </div>
+  );
+}
+
+function FormField({ label, htmlFor, children }) {
+  return (
+    <div>
+      <label
+        htmlFor={htmlFor}
+        className="mb-2 block text-sm font-medium text-[#D9D1C6]"
+      >
+        {label}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+function Footer() {
+  return (
+    <p className="relative text-xs text-[#81796F]">
+      Built for students, powered by AI.
+    </p>
   );
 }
 
