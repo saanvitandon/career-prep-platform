@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import {
   Sparkles,
@@ -14,7 +13,9 @@ import {
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+const API_URL = (
+  import.meta.env.VITE_API_URL || "http://localhost:5000"
+).replace(/\/+$/, "");
 
 function Login() {
   const navigate = useNavigate();
@@ -60,10 +61,21 @@ function Login() {
         }),
       });
 
-      const data = await response.json();
+      const contentType = response.headers.get("content-type") || "";
+      let data;
+
+      if (contentType.includes("application/json")) {
+        data = await response.json();
+      } else {
+        throw new Error(
+          `The server returned an unexpected response (${response.status}). Please check the API URL and backend routes.`
+        );
+      }
 
       if (!response.ok) {
-        setError(data.message || "Login failed. Please check your credentials.");
+        setError(
+          data.message || "Login failed. Please check your credentials."
+        );
         return;
       }
 
@@ -76,8 +88,11 @@ function Login() {
       navigate("/dashboard", { replace: true });
     } catch (err) {
       console.error("Login error:", err);
+
       setError(
-        "Unable to connect to the server. Please ensure the backend is running."
+        err.message?.includes("unexpected response")
+          ? err.message
+          : "Unable to connect to the server. Please try again."
       );
     } finally {
       setLoading(false);
@@ -118,7 +133,7 @@ function Login() {
             <p className="mt-5 max-w-md text-sm leading-7 text-[#AAA093]">
               Prepare for placements with tools that help you understand your
               strengths, improve your skills, and feel more confident about
-              what's next.
+              what&apos;s next.
             </p>
 
             <div className="mt-8 space-y-4">
@@ -151,7 +166,7 @@ function Login() {
               </span>
 
               <h2 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-[#F0ECE5] sm:text-4xl">
-                Let's get you in.
+                Let&apos;s get you in.
               </h2>
 
               <p className="mt-3 text-sm leading-6 text-[#AAA093]">
@@ -264,7 +279,7 @@ function Login() {
             </div>
 
             <p className="mt-7 text-center text-sm text-[#928A80]">
-              Don't have an account?
+              Don&apos;t have an account?
               <button
                 type="button"
                 onClick={() => navigate("/register")}
