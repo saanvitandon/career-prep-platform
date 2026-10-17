@@ -54,7 +54,7 @@ function Navbar() {
     .toUpperCase();
 
   const currentPage = pageInfo[location.pathname] || {
-    title: "Placement Copilot",
+    title: "Ascend",
     description: "Your AI-powered career preparation platform",
   };
 

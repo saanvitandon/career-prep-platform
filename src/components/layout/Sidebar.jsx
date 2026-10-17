@@ -97,7 +97,7 @@ function Sidebar({
         >
           <div className="flex min-w-0 items-center gap-3">
             <div
-              title="Placement Copilot"
+              title="Ascend"
               className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#D1B99A]/45 bg-gradient-to-br from-[#D1B99A] to-[#AA8E70] text-[#252019] shadow-[0_5px_16px_rgba(0,0,0,0.25),inset_0_1px_0_rgba(255,255,255,0.5)]"
             >
               <Sparkles size={21} strokeWidth={1.8} />
@@ -106,7 +106,7 @@ function Sidebar({
             {!collapsed && (
               <div className="min-w-0">
                 <h1 className="whitespace-nowrap text-sm font-semibold tracking-tight text-[#F0ECE5]">
-                  Placement Copilot
+                  Ascend
                 </h1>
                 <p className="mt-1 whitespace-nowrap text-[11px] text-[#968E84]">
                   Your career workspace
