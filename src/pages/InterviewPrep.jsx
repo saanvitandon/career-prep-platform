@@ -118,12 +118,14 @@ function InterviewPrep() {
         : [];
 
       setSession({ ...savedSession, questions });
+
       setAnswers(
         Array.from(
           { length: questions.length },
           (_, index) => savedAnswers[index] || ""
         )
       );
+
       setExpandedQuestion(null);
       setShowQuestions(true);
       setDirty(false);
@@ -309,7 +311,7 @@ function InterviewPrep() {
         <div className="absolute -left-48 top-[45%] h-96 w-96 rounded-full bg-[radial-gradient(circle,rgba(135,145,119,0.035),transparent_70%)] blur-3xl" />
       </div>
 
-      {/* Simplified hero */}
+      {/* Hero */}
       <section className="relative overflow-hidden rounded-[26px] border border-[#403B35] bg-gradient-to-br from-[#24221F] via-[#1C1B19] to-[#191817] p-6 shadow-[0_12px_35px_rgba(0,0,0,0.16)] sm:p-8">
         <div className="relative">
           <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#65513C]/70 bg-[#332A21]/70 px-3.5 py-2 text-[10px] font-semibold tracking-[0.18em] text-[#D4B994]">
@@ -390,9 +392,11 @@ function InterviewPrep() {
                   <p className="text-[10px] font-semibold tracking-[0.19em] text-[#B7A18A]">
                     BUILD YOUR SESSION
                   </p>
+
                   <h2 className="mt-3 text-2xl font-semibold tracking-tight text-[#F0ECE5]">
                     Let&apos;s get you ready.
                   </h2>
+
                   <p className="mt-2 max-w-md text-sm leading-6 text-[#A59D93]">
                     Tailor your practice to the position and interview style
                     you&apos;re preparing for.
@@ -411,6 +415,7 @@ function InterviewPrep() {
                 >
                   Target role
                 </label>
+
                 <input
                   id="target-role"
                   type="text"
@@ -429,6 +434,7 @@ function InterviewPrep() {
                 <p className="mt-1 text-xs text-[#8F877D]">
                   Choose the level you want to work towards.
                 </p>
+
                 <div className="mt-3 grid grid-cols-3 gap-2">
                   {["Easy", "Medium", "Hard"].map((level) => (
                     <OptionButton
@@ -445,6 +451,7 @@ function InterviewPrep() {
                 <p className="text-sm font-medium text-[#D9D2C8]">
                   Question type
                 </p>
+
                 <div className="mt-3 grid grid-cols-3 gap-2">
                   {["Technical", "Behavioral", "HR"].map((type) => (
                     <OptionButton
@@ -492,6 +499,7 @@ function InterviewPrep() {
                 <h3 className="relative mt-5 text-xl font-semibold text-[#F0E7D9]">
                   Make practice count.
                 </h3>
+
                 <p className="relative mt-2 text-sm leading-6 text-[#B3A797]">
                   Don&apos;t aim for a perfect answer on the first try. Explain
                   your thinking, use specific examples, and refine your
@@ -547,6 +555,7 @@ function InterviewPrep() {
                   Pick up where you left off.
                 </h2>
               </div>
+
               <span className="text-sm text-[#8F877D]">
                 {history.length}{" "}
                 {history.length === 1 ? "session" : "sessions"}
@@ -580,27 +589,22 @@ function InterviewPrep() {
                   >
                     <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-[#C5A984]/20 to-transparent opacity-0 transition group-hover:opacity-100" />
 
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <h3 className="break-words font-semibold text-[#F0ECE5]">
-                          {item.target_role}
-                        </h3>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          <span className="rounded-full border border-[#645239] bg-[#332B20] px-3 py-1 text-xs font-medium text-[#D8C29D]">
-                            {item.difficulty}
-                          </span>
-                          <span className="rounded-full border border-[#51463A] bg-[#2B2621] px-3 py-1 text-xs font-medium text-[#C7B7A3]">
-                            {item.question_type}
-                          </span>
-                          <span className="rounded-full border border-[#3D4A3B] bg-[#252D24] px-3 py-1 text-xs font-medium text-[#B9C9AE]">
-                            {item.question_count} questions
-                          </span>
-                        </div>
-                      </div>
+                    <div className="min-w-0">
+                      <h3 className="break-words font-semibold text-[#F0ECE5]">
+                        {item.target_role}
+                      </h3>
 
-                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#403B35] bg-[#292723] text-[#B7A18A]">
-                        <FileText size={18} />
-                      </span>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <span className="rounded-full border border-[#645239] bg-[#332B20] px-3 py-1 text-xs font-medium text-[#D8C29D]">
+                          {item.difficulty}
+                        </span>
+                        <span className="rounded-full border border-[#51463A] bg-[#2B2621] px-3 py-1 text-xs font-medium text-[#C7B7A3]">
+                          {item.question_type}
+                        </span>
+                        <span className="rounded-full border border-[#3D4A3B] bg-[#252D24] px-3 py-1 text-xs font-medium text-[#B9C9AE]">
+                          {item.question_count} questions
+                        </span>
+                      </div>
                     </div>
 
                     <p className="mt-4 flex items-center gap-2 text-xs text-[#8F877D]">
@@ -610,50 +614,59 @@ function InterviewPrep() {
                         : "Date unavailable"}
                     </p>
 
-                    <button
-                      type="button"
-                      onClick={() => openPastSession(item.id)}
-                      disabled={
-                        loadingSessionId !== null ||
-                        deletingSessionId !== null
-                      }
-                      className="mt-5 inline-flex items-center gap-2 rounded-xl border border-[#51483D] bg-[#29251F] px-4 py-2.5 text-sm font-medium text-[#D8C29D] transition hover:border-[#8C7455] hover:bg-[#332B21] disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {loadingSessionId === item.id ? (
-                        <>
-                          <LoaderCircle size={15} className="animate-spin" />
-                          Opening...
-                        </>
-                      ) : (
-                        <>
-                          Continue session
-                          <ArrowRight size={15} />
-                        </>
-                      )}
-                    </button>
+                    {/* Buttons now share one row with consistent spacing */}
+                    <div className="mt-5 flex flex-wrap items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => openPastSession(item.id)}
+                        disabled={
+                          loadingSessionId !== null ||
+                          deletingSessionId !== null
+                        }
+                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#51483D] bg-[#29251F] px-4 py-2.5 text-sm font-medium text-[#D8C29D] transition hover:border-[#8C7455] hover:bg-[#332B21] disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {String(loadingSessionId) === String(item.id) ? (
+                          <>
+                            <LoaderCircle
+                              size={15}
+                              className="animate-spin"
+                            />
+                            Opening...
+                          </>
+                        ) : (
+                          <>
+                            Continue session
+                            <ArrowRight size={15} />
+                          </>
+                        )}
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={() => deleteSession(item.id)}
-                      disabled={
-                        deletingSessionId !== null ||
-                        loadingSessionId !== null
-                      }
-                      aria-label={`Delete interview session for ${item.target_role}`}
-                      className="mt-3 inline-flex items-center justify-center gap-2 rounded-xl border border-[#744540] bg-[#332321] px-4 py-2.5 text-sm font-medium text-[#E7B2A9] transition hover:border-[#A65E55] hover:bg-[#422A27] disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {String(deletingSessionId) === String(item.id) ? (
-                        <>
-                          <LoaderCircle size={15} className="animate-spin" />
-                          Deleting...
-                        </>
-                      ) : (
-                        <>
-                          <Trash2 size={15} />
-                          Delete session
-                        </>
-                      )}
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => deleteSession(item.id)}
+                        disabled={
+                          deletingSessionId !== null ||
+                          loadingSessionId !== null
+                        }
+                        aria-label={`Delete interview session for ${item.target_role}`}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#744540] bg-[#332321] px-4 py-2.5 text-sm font-medium text-[#E7B2A9] transition hover:border-[#A65E55] hover:bg-[#422A27] disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {String(deletingSessionId) === String(item.id) ? (
+                          <>
+                            <LoaderCircle
+                              size={15}
+                              className="animate-spin"
+                            />
+                            Deleting...
+                          </>
+                        ) : (
+                          <>
+                            <Trash2 size={15} />
+                            Delete session
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -683,9 +696,11 @@ function InterviewPrep() {
                     <Mic2 size={14} />
                     PRACTICE SESSION
                   </div>
+
                   <h2 className="mt-4 break-words text-2xl font-semibold tracking-tight text-[#F0ECE5] sm:text-3xl">
                     {session?.target_role || "Interview practice"}
                   </h2>
+
                   <div className="mt-3 flex flex-wrap gap-2">
                     <span className="rounded-full border border-[#645239] bg-[#332B20] px-3 py-1.5 text-xs font-semibold text-[#D8C29D]">
                       {session?.difficulty}
@@ -700,12 +715,14 @@ function InterviewPrep() {
                   <p className="text-xs text-[#A59D93]">
                     Questions answered
                   </p>
+
                   <p className="mt-2 text-3xl font-semibold tabular-nums text-[#F0ECE5]">
                     {answeredCount}
                     <span className="ml-1 text-base font-normal text-[#8F877D]">
                       / {questions.length}
                     </span>
                   </p>
+
                   <div
                     className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#403B35]"
                     role="progressbar"
@@ -736,6 +753,7 @@ function InterviewPrep() {
                   answer.
                 </p>
               </div>
+
               <span className="rounded-full border border-[#51483D] bg-[#2B2621] px-3 py-1.5 text-xs font-semibold text-[#D8BD98]">
                 {questions.length} questions
               </span>
@@ -763,6 +781,7 @@ function InterviewPrep() {
                           answerIndex === index ? value : answer
                         )
                       );
+
                       setDirty(true);
                       setMessage("");
                     }}
@@ -784,6 +803,7 @@ function InterviewPrep() {
                     ? "You have unsaved changes."
                     : "Your answers are saved when you choose Save answers."}
                 </p>
+
                 <p className="mt-1 text-xs text-[#8F877D]">
                   {answeredCount} of {questions.length} questions answered
                 </p>
@@ -849,6 +869,7 @@ function InfoCard({ icon, title, description }) {
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#403B35] bg-[#292621] text-[#B7A18A] transition group-hover:border-[#65513C] group-hover:text-[#D8BD98]">
         {icon}
       </span>
+
       <div>
         <h3 className="text-sm font-semibold text-[#E9E2D8]">{title}</h3>
         <p className="mt-1 text-xs leading-5 text-[#928A80]">{description}</p>
@@ -908,10 +929,12 @@ function QuestionItem({
         <div className="space-y-5 border-t border-[#403B35] bg-[#191817] p-4 sm:p-5">
           <div className="relative overflow-hidden rounded-2xl border border-[#51483D] bg-gradient-to-br from-[#302920] to-[#25211C] p-4">
             <div className="pointer-events-none absolute right-0 top-0 h-24 w-24 bg-[radial-gradient(circle_at_top_right,rgba(197,169,132,0.08),transparent_70%)]" />
+
             <div className="relative flex items-start gap-3">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#65513C]/70 bg-[#3A3025] text-[#D8BD98]">
                 <Lightbulb size={18} />
               </span>
+
               <div>
                 <p className="text-sm font-semibold text-[#E8D8C0]">
                   Preparation tip
@@ -931,6 +954,7 @@ function QuestionItem({
               >
                 Your answer
               </label>
+
               <span className="text-xs tabular-nums text-[#81796F]">
                 {answer.length.toLocaleString()}/10,000
               </span>
