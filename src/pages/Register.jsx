@@ -13,9 +13,12 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { GoogleLogin } from "@react-oauth/google";
 import { useAuth } from "../context/AuthContext";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+const API_URL = (
+  import.meta.env.VITE_API_URL || "http://localhost:5000"
+).replace(/\/+$/, "");
 
 function Register() {
   const navigate = useNavigate();
@@ -86,6 +89,14 @@ function Register() {
         }),
       });
 
+      const contentType = response.headers.get("content-type") || "";
+
+      if (!contentType.includes("application/json")) {
+        throw new Error(
+          `The server returned an unexpected response (${response.status}). Please check the API URL and backend routes.`
+        );
+      }
+
       const data = await response.json();
 
       if (!response.ok) {
@@ -102,12 +113,71 @@ function Register() {
       navigate("/dashboard", { replace: true });
     } catch (err) {
       console.error("Registration error:", err);
+
       setError(
-        "Unable to connect to the server. Please ensure the backend is running."
+        err.message?.includes("unexpected response")
+          ? err.message
+          : "Unable to connect to the server. Please try again."
       );
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleGoogleSuccess = async (credentialResponse) => {
+    if (loading) return;
+
+    if (!credentialResponse?.credential) {
+      setError("Google did not return a credential. Please try again.");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await fetch(`${API_URL}/api/auth/google`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          credential: credentialResponse.credential,
+        }),
+      });
+
+      const contentType = response.headers.get("content-type") || "";
+
+      if (!contentType.includes("application/json")) {
+        throw new Error(
+          `The server returned an unexpected response (${response.status}). Please check the backend route.`
+        );
+      }
+
+      const data = await response.json();
+
+      if (!response.ok || !data.token || !data.user) {
+        setError(data.message || "Google sign-up failed. Please try again.");
+        return;
+      }
+
+      login(data.token, data.user);
+      navigate("/dashboard", { replace: true });
+    } catch (err) {
+      console.error("Google sign-up error:", err);
+
+      setError(
+        err.message?.includes("unexpected response")
+          ? err.message
+          : "Unable to connect to the server. Please try again."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleError = () => {
+    setError("Google sign-up was unsuccessful. Please try again.");
   };
 
   return (
@@ -318,6 +388,26 @@ function Register() {
               </button>
             </form>
 
+            <div className="my-6 flex items-center gap-4">
+              <div className="h-px flex-1 bg-[#35312B]" />
+              <span className="text-xs text-[#746D63]">OR CONTINUE WITH</span>
+              <div className="h-px flex-1 bg-[#35312B]" />
+            </div>
+
+            <div className="flex justify-center">
+              <div className="google-login-wrapper w-full">
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={handleGoogleError}
+                  theme="filled_black"
+                  shape="rectangular"
+                  size="large"
+                  width="100%"
+                  text="continue_with"
+                />
+              </div>
+            </div>
+
             <div className="mt-6 flex items-start gap-2 rounded-xl border border-[#35312B] bg-[#191817] p-3.5">
               <ShieldCheck
                 size={16}
@@ -358,7 +448,7 @@ function Branding() {
       </div>
       <div>
         <h1 className="text-base font-bold tracking-tight text-[#F0ECE5]">
-          Placement Copilot
+          Ascend
         </h1>
         <p className="mt-0.5 text-xs text-[#928A80]">
           Your next chapter starts here

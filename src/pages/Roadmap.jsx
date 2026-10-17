@@ -1,5 +1,4 @@
-
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Map,
   Sparkles,
@@ -8,80 +7,86 @@ import {
   Clock3,
   ArrowRight,
   RotateCcw,
-  Check,
   LoaderCircle,
   AlertCircle,
   Target,
   BookOpen,
   Trophy,
-  CalendarDays,
   TrendingUp,
+  ChevronDown,
+  ExternalLink,
+  RefreshCw,
 } from "lucide-react";
 
 const API_URL = `${
   import.meta.env.VITE_API_URL || "http://localhost:5000"
 }/api/roadmap`;
 
-const roadmapWeeks = [
-  {
-    week: 1,
-    title: "Arrays & Strings",
-    description:
-      "Build strong fundamentals with arrays, strings, sorting, and basic problem-solving patterns.",
-  },
-  {
-    week: 2,
-    title: "Hashing & Two Pointers",
-    description:
-      "Learn efficient lookup techniques and common two-pointer problem patterns.",
-  },
-  {
-    week: 3,
-    title: "Binary Search",
-    description:
-      "Master binary search and identify problems where it can reduce complexity.",
-  },
-  {
-    week: 4,
-    title: "Linked Lists",
-    description:
-      "Understand linked list operations, pointer manipulation, and common interview problems.",
-  },
-  {
-    week: 5,
-    title: "Trees & Binary Search Trees",
-    description:
-      "Learn tree traversal, recursion, BST operations, and common interview patterns.",
-  },
-  {
-    week: 6,
-    title: "Graphs",
-    description:
-      "Cover BFS, DFS, shortest paths, and graph-based problem solving.",
-  },
-  {
-    week: 7,
-    title: "Dynamic Programming",
-    description:
-      "Learn memoization, tabulation, and common dynamic programming patterns.",
-  },
-  {
-    week: 8,
-    title: "Interview Preparation",
-    description:
-      "Practice mixed DSA problems, behavioral questions, and mock interview sessions.",
-  },
+const INITIAL_FORM = {
+  role: "Software Engineer Intern",
+  level: "Some experience",
+  hours: "6–10 hours",
+  duration: "12 weeks",
+  priority: "Balanced",
+  skills: "",
+};
+
+const LEVELS = [
+  "Complete beginner",
+  "Some experience",
+  "Intermediate",
+  "Advanced",
 ];
 
+const HOURS = ["1–5 hours", "6–10 hours", "11–20 hours", "20+ hours"];
+
+const DURATIONS = [
+  "4 weeks",
+  "8 weeks",
+  "12 weeks",
+  "16 weeks",
+  "6 months",
+];
+
+const PRIORITIES = [
+  "Balanced",
+  "Get job-ready quickly",
+  "Build projects",
+  "Interview preparation",
+  "Learn fundamentals",
+];
+
+function getToken() {
+  return localStorage.getItem("token");
+}
+
+async function readResponse(response) {
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok || data.success === false) {
+    throw new Error(
+      data.message ||
+        (response.status === 401
+          ? "Your session has expired. Please log in again."
+          : "Something went wrong. Please try again.")
+    );
+  }
+
+  return data;
+}
+
 function Roadmap() {
-  const [completedWeeks, setCompletedWeeks] = useState([]);
-  const [showRoadmap, setShowRoadmap] = useState(true);
+  const [form, setForm] = useState(INITIAL_FORM);
+  const [roadmap, setRoadmap] = useState(null);
+  const [savedCriteria, setSavedCriteria] = useState(null);
+  const [completedTasks, setCompletedTasks] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
   const [saveMessage, setSaveMessage] = useState("");
-
-  const getToken = () => localStorage.getItem("token");
+  const [expandedWeeks, setExpandedWeeks] = useState([]);
+  const [showSetup, setShowSetup] = useState(false);
 
   const loadRoadmap = useCallback(async () => {
     const token = getToken();
@@ -99,29 +104,35 @@ function Roadmap() {
       const response = await fetch(API_URL, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const data = await response.json();
 
-      if (response.status === 401) {
-        throw new Error("Your session has expired. Please log in again.");
-      }
+      const data = await readResponse(response);
 
-      if (!response.ok) {
-        throw new Error(data.message || "Unable to load roadmap.");
-      }
+      const savedRoadmap =
+        data.roadmap && Array.isArray(data.roadmap.weeks)
+          ? data.roadmap
+          : null;
 
-      const validWeeks = Array.isArray(data.completedWeeks)
-        ? data.completedWeeks.filter(
-            (week) =>
-              Number.isInteger(week) &&
-              week >= 1 &&
-              week <= roadmapWeeks.length
-          )
+      setRoadmap(savedRoadmap);
+      setSavedCriteria(data.criteria || null);
+
+      const savedTasks = Array.isArray(data.completedTasks)
+        ? data.completedTasks
         : [];
 
-      setCompletedWeeks([...new Set(validWeeks)].sort((a, b) => a - b));
+      setCompletedTasks(savedTasks);
+
+      if (data.criteria) {
+        setForm({ ...INITIAL_FORM, ...data.criteria });
+      }
+
+      setExpandedWeeks(
+        savedRoadmap?.weeks?.length ? [savedRoadmap.weeks[0].week] : []
+      );
+
+      setShowSetup(!savedRoadmap);
     } catch (err) {
       console.error("Load roadmap error:", err);
-      setError(err.message || "Unable to load roadmap progress.");
+      setError(err.message || "Unable to load your roadmap.");
     } finally {
       setIsLoading(false);
     }
@@ -131,66 +142,251 @@ function Roadmap() {
     loadRoadmap();
   }, [loadRoadmap]);
 
-  const saveWeeks = async (weeks) => {
+  const totalWeeks = roadmap?.weeks?.length || 0;
+
+  const totalTasks = useMemo(
+    () =>
+      roadmap?.weeks?.reduce(
+        (total, week) => total + (week.tasks?.length || 0),
+        0
+      ) || 0,
+    [roadmap]
+  );
+
+  const completedSet = useMemo(
+    () => new Set(completedTasks),
+    [completedTasks]
+  );
+
+  const completedCount = completedTasks.length;
+
+  const progress =
+    totalTasks > 0 ? Math.round((completedCount / totalTasks) * 100) : 0;
+
+  const completedWeeks = useMemo(() => {
+    if (!roadmap) return [];
+
+    return roadmap.weeks
+      .filter(
+        (week) =>
+          week.tasks?.length > 0 &&
+          week.tasks.every((task) => completedSet.has(task.id))
+      )
+      .map((week) => week.week);
+  }, [roadmap, completedSet]);
+
+  const currentWeek = roadmap?.weeks?.find(
+    (week) => !completedWeeks.includes(week.week)
+  );
+
+  const updateForm = (field, value) => {
+    setForm((previous) => ({ ...previous, [field]: value }));
+  };
+
+  const generateRoadmap = async (event) => {
+    event?.preventDefault();
+
+    if (isGenerating || isSaving) return;
+
+    if (!form.role.trim()) {
+      setError("Enter the role you want to prepare for.");
+      return;
+    }
+
     const token = getToken();
 
     if (!token) {
-      setError("Your session is missing. Please log in again.");
-      return false;
+      setError("Your session has expired. Please log in again.");
+      return;
     }
 
+    if (roadmap) {
+      const confirmed = window.confirm(
+        "Generate a new roadmap? Your current roadmap and its task progress will be replaced."
+      );
+
+      if (!confirmed) return;
+    }
+
+    setIsGenerating(true);
+    setError("");
+    setSaveMessage("");
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 75000);
+
+    try {
+      const response = await fetch(`${API_URL}/generate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        signal: controller.signal,
+        body: JSON.stringify({
+          ...form,
+          role: form.role.trim(),
+          skills: form.skills.trim(),
+        }),
+      });
+
+      const data = await readResponse(response);
+
+      if (!data.roadmap || !Array.isArray(data.roadmap.weeks)) {
+        throw new Error("The server returned an invalid roadmap.");
+      }
+
+      setRoadmap(data.roadmap);
+      setSavedCriteria(data.criteria || { ...form });
+      setCompletedTasks(
+        Array.isArray(data.completedTasks) ? data.completedTasks : []
+      );
+      setExpandedWeeks(
+        data.roadmap.weeks.length ? [data.roadmap.weeks[0].week] : []
+      );
+      setShowSetup(false);
+      setSaveMessage("Your personalized roadmap has been generated.");
+    } catch (err) {
+      console.error("Generate roadmap error:", err);
+
+      setError(
+        err.name === "AbortError"
+          ? "Generation timed out. Check your backend terminal and try again."
+          : err.message || "Unable to generate your roadmap."
+      );
+    } finally {
+      clearTimeout(timeoutId);
+      setIsGenerating(false);
+    }
+  };
+
+  const toggleTask = async (taskId) => {
+    if (isSaving || isGenerating || !roadmap) return;
+
+    const token = getToken();
+
+    if (!token) {
+      setError("Your session has expired. Please log in again.");
+      return;
+    }
+
+    const previousTasks = completedTasks;
+
+    const nextTasks = completedSet.has(taskId)
+      ? completedTasks.filter((id) => id !== taskId)
+      : [...completedTasks, taskId];
+
+    setCompletedTasks(nextTasks);
     setIsSaving(true);
     setError("");
     setSaveMessage("");
 
     try {
-      const response = await fetch(API_URL, {
+      const response = await fetch(`${API_URL}/progress`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ completedWeeks: weeks }),
+        body: JSON.stringify({ completedTasks: nextTasks }),
       });
 
-      const data = await response.json();
+      const data = await readResponse(response);
 
-      if (!response.ok) {
-        throw new Error(data.message || "Unable to save progress.");
-      }
-
-      const savedWeeks = Array.isArray(data.completedWeeks)
-        ? data.completedWeeks
-        : weeks;
-
-      setCompletedWeeks(savedWeeks);
+      setCompletedTasks(
+        Array.isArray(data.completedTasks) ? data.completedTasks : nextTasks
+      );
       setSaveMessage("Your progress has been saved.");
-      return true;
     } catch (err) {
-      console.error("Save roadmap error:", err);
-      setError(err.message || "Unable to save roadmap progress.");
-      return false;
+      console.error("Save roadmap progress error:", err);
+      setCompletedTasks(previousTasks);
+      setError(err.message || "Unable to save your progress.");
     } finally {
       setIsSaving(false);
     }
   };
 
-  const toggleWeek = async (weekNumber) => {
-    if (isLoading || isSaving) return;
+  const markWeekComplete = async (week) => {
+    if (isSaving || isGenerating || !roadmap) return;
 
-    const nextWeeks = completedWeeks.includes(weekNumber)
-      ? completedWeeks.filter((week) => week !== weekNumber)
-      : [...completedWeeks, weekNumber].sort((a, b) => a - b);
-
-    await saveWeeks(nextWeeks);
-  };
-
-  const resetRoadmap = async () => {
     const token = getToken();
 
     if (!token) {
-      setError("Your session is missing. Please log in again.");
-      return false;
+      setError("Your session has expired. Please log in again.");
+      return;
+    }
+
+    const weekTasks = Array.isArray(week.tasks) ? week.tasks : [];
+    if (weekTasks.length === 0) return;
+
+    const allTasksCompleted = weekTasks.every((task) =>
+      completedSet.has(task.id)
+    );
+
+    const weekTaskIds = new Set(weekTasks.map((task) => task.id));
+
+    const previousTasks = completedTasks;
+
+    // If every task is complete, remove this week's tasks.
+    // Otherwise, mark every task in this week as complete.
+    const nextTasks = allTasksCompleted
+      ? completedTasks.filter((id) => !weekTaskIds.has(id))
+      : [
+          ...new Set([
+            ...completedTasks,
+            ...weekTasks.map((task) => task.id),
+          ]),
+        ];
+
+    setCompletedTasks(nextTasks);
+    setIsSaving(true);
+    setError("");
+    setSaveMessage("");
+
+    try {
+      const response = await fetch(`${API_URL}/progress`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ completedTasks: nextTasks }),
+      });
+
+      const data = await readResponse(response);
+
+      setCompletedTasks(
+        Array.isArray(data.completedTasks) ? data.completedTasks : nextTasks
+      );
+
+      setSaveMessage(
+        allTasksCompleted
+          ? `Week ${week.week} marked as incomplete.`
+          : `Week ${week.week} marked as completed.`
+      );
+    } catch (err) {
+      console.error("Update week progress error:", err);
+      setCompletedTasks(previousTasks);
+      setError(err.message || "Unable to save your progress.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const resetProgress = async () => {
+    if (!roadmap || isSaving || isGenerating) return;
+
+    const confirmed = window.confirm(
+      "Reset all task progress for this roadmap? Your generated roadmap will be kept."
+    );
+
+    if (!confirmed) return;
+
+    const token = getToken();
+
+    if (!token) {
+      setError("Your session has expired. Please log in again.");
+      return;
     }
 
     setIsSaving(true);
@@ -203,62 +399,27 @@ function Roadmap() {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      const data = await response.json();
+      const data = await readResponse(response);
 
-      if (!response.ok) {
-        throw new Error(data.message || "Unable to reset roadmap.");
-      }
-
-      setCompletedWeeks(
-        Array.isArray(data.completedWeeks) ? data.completedWeeks : []
+      setCompletedTasks(
+        Array.isArray(data.completedTasks) ? data.completedTasks : []
       );
-      setShowRoadmap(true);
       setSaveMessage("Your roadmap progress has been reset.");
-      return true;
     } catch (err) {
-      console.error("Reset roadmap error:", err);
-      setError(err.message || "Unable to reset roadmap progress.");
-      return false;
+      console.error("Reset roadmap progress error:", err);
+      setError(err.message || "Unable to reset your progress.");
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleReset = () => {
-    if (isLoading || isSaving) return;
-
-    if (
-      window.confirm(
-        "Reset your progress? All completed weeks will be marked incomplete."
-      )
-    ) {
-      resetRoadmap();
-    }
+  const toggleWeek = (weekNumber) => {
+    setExpandedWeeks((previous) =>
+      previous.includes(weekNumber)
+        ? previous.filter((week) => week !== weekNumber)
+        : [...previous, weekNumber]
+    );
   };
-
-  const handleRestore = async () => {
-    if (
-      window.confirm(
-        "Restore the eight-week roadmap and reset your saved progress?"
-      )
-    ) {
-      await resetRoadmap();
-    }
-  };
-
-  const completedCount = completedWeeks.length;
-  const totalWeeks = roadmapWeeks.length;
-  const progress = Math.round((completedCount / totalWeeks) * 100);
-
-  const currentWeek =
-    roadmapWeeks.find((week) => !completedWeeks.includes(week.week))?.week ??
-    null;
-
-  const currentTopic = roadmapWeeks.find(
-    (week) => week.week === currentWeek
-  );
-
-  const remainingWeeks = totalWeeks - completedCount;
 
   if (isLoading) {
     return (
@@ -270,73 +431,66 @@ function Roadmap() {
   }
 
   return (
-    <div className="relative mx-auto max-w-[1400px] space-y-7 pb-8 text-[#F0ECE5]">
+    <div className="relative mx-auto max-w-[1400px] space-y-6 pb-8 text-[#F0ECE5]">
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
         <div className="absolute -right-32 top-24 h-96 w-96 rounded-full bg-[radial-gradient(circle,rgba(173,135,91,0.06),transparent_70%)] blur-3xl" />
         <div className="absolute -left-40 top-[55%] h-96 w-96 rounded-full bg-[radial-gradient(circle,rgba(135,145,119,0.04),transparent_70%)] blur-3xl" />
       </div>
 
-      {/* Introduction */}
-      <section className="relative overflow-hidden rounded-[28px] border border-[#403B35] bg-gradient-to-br from-[#26231F] via-[#1E1C19] to-[#191817] p-6 shadow-[0_18px_55px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(255,255,255,0.05)] sm:p-9">
-        <div className="pointer-events-none absolute -right-12 -top-24 h-64 w-64 rounded-full border border-[#C5A984]/10" />
-        <div className="pointer-events-none absolute -right-4 -top-16 h-48 w-48 rounded-full bg-[radial-gradient(circle,rgba(197,169,132,0.07),transparent_70%)]" />
+      {/* Compact page introduction */}
+      <section className="relative overflow-hidden rounded-[24px] border border-[#403B35] bg-[#201E1B] px-6 py-6 shadow-[0_12px_35px_rgba(0,0,0,0.16)] sm:px-8 sm:py-7">
+        <div className="pointer-events-none absolute -right-12 -top-20 h-56 w-56 rounded-full border border-[#C5A984]/10" />
 
         <div className="relative">
-          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#65513C]/70 bg-[#332A21]/70 px-3.5 py-2 text-[10px] font-semibold tracking-[0.18em] text-[#D4B994]">
-            <Map size={14} />
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#65513C]/70 bg-[#332A21]/70 px-3 py-1.5 text-[10px] font-semibold tracking-[0.16em] text-[#D4B994]">
+            <Map size={13} />
             YOUR LEARNING PATH
           </div>
 
-          <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
-            <div className="max-w-2xl">
-              <h1 className="text-3xl font-semibold leading-tight tracking-[-0.045em] text-[#F1ECE4] sm:text-5xl">
+          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+            <div className="max-w-3xl min-w-0">
+              <h1 className="text-3xl font-semibold leading-tight tracking-[-0.04em] text-[#F1ECE4] sm:text-4xl">
                 Small steps.
-                <br />
-                <span className="bg-gradient-to-r from-[#E7D8C1] via-[#C5A984] to-[#A99175] bg-clip-text text-transparent">
-                  Real progress.
-                </span>
+                <span className="block text-[#C5A984]">Real progress.</span>
               </h1>
 
-              <p className="mt-5 text-sm leading-7 text-[#AAA197] sm:text-base">
-                An eight-week DSA plan to build consistency, strengthen
-                problem-solving, and prepare for technical interviews.
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-[#AAA197] sm:text-base">
+                Build a learning plan around your career goal, your current
+                skills, and the time you actually have.
               </p>
             </div>
 
-            <div className="flex items-center gap-3 rounded-2xl border border-[#403B35] bg-[#191817]/80 px-4 py-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#65513C]/60 bg-[#332A21] text-[#D4B994]">
-                <Target size={20} />
+            {roadmap && (
+              <div className="flex shrink-0 items-center gap-3 self-start rounded-xl border border-[#403B35] bg-[#191817] px-4 py-3 sm:self-center">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#65513C]/60 bg-[#332A21] text-[#D4B994]">
+                  <Target size={19} />
+                </div>
+
+                <div>
+                  <p className="text-lg font-semibold text-[#F0ECE5]">
+                    {completedWeeks.length}
+                    <span className="text-[#81796F]"> / {totalWeeks}</span>
+                  </p>
+                  <p className="text-xs text-[#928A80]">Weeks completed</p>
+                </div>
               </div>
-              <div>
-                <p className="text-xl font-semibold text-[#F0ECE5]">
-                  {completedCount}
-                  <span className="text-[#81796F]"> / {totalWeeks}</span>
-                </p>
-                <p className="mt-0.5 text-xs text-[#928A80]">
-                  Weeks completed
-                </p>
-              </div>
-            </div>
+            )}
           </div>
 
-          <div className="mt-7 flex flex-wrap gap-x-6 gap-y-3 border-t border-[#403B35]/80 pt-5 text-xs text-[#928A80]">
-            <span className="inline-flex items-center gap-2">
-              <CalendarDays size={14} className="text-[#C5A984]" />
-              8-week learning plan
-            </span>
+          <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 border-t border-[#403B35]/80 pt-4 text-xs text-[#928A80]">
             <span className="inline-flex items-center gap-2">
               <CheckCircle2 size={14} className="text-[#A4B49A]" />
-              Track your progress
+              Track individual tasks
             </span>
+
             <span className="inline-flex items-center gap-2">
               <TrendingUp size={14} className="text-[#C5A984]" />
-              Interview-focused practice
+              Progress saved to your account
             </span>
           </div>
         </div>
       </section>
 
-      {/* Feedback */}
       {error && (
         <div
           role="alert"
@@ -350,7 +504,7 @@ function Roadmap() {
               onClick={loadRoadmap}
               className="mt-2 font-semibold underline underline-offset-4"
             >
-              Try loading again
+              Reload saved roadmap
             </button>
           </div>
         </div>
@@ -377,54 +531,89 @@ function Roadmap() {
         </div>
       )}
 
-      {showRoadmap ? (
+      {isGenerating ? (
+        <section className="rounded-[26px] border border-[#51483D] bg-gradient-to-b from-[#23211E] to-[#1B1A19] p-10 text-center">
+          <LoaderCircle
+            size={32}
+            className="mx-auto animate-spin text-[#C5A984]"
+          />
+          <h2 className="mt-5 text-xl font-semibold text-[#F0ECE5]">
+            Building your personalized roadmap
+          </h2>
+          <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-[#928A80]">
+            Gemini is tailoring your weekly goals, practical tasks, and
+            resources to your career target. This can take a little while.
+          </p>
+        </section>
+      ) : showSetup || !roadmap ? (
+        <SetupForm
+          form={form}
+          updateForm={updateForm}
+          onSubmit={generateRoadmap}
+          isGenerating={isGenerating}
+          hasRoadmap={Boolean(roadmap)}
+          onCancel={() => setShowSetup(false)}
+        />
+      ) : (
         <>
-          {/* Overview */}
           <section className="relative overflow-hidden rounded-[26px] border border-[#65513C]/80 bg-gradient-to-br from-[#393024] via-[#30281F] to-[#211E19] p-6 shadow-[0_15px_40px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.05)] sm:p-8">
             <div className="pointer-events-none absolute -right-12 -top-20 h-64 w-64 rounded-full bg-[radial-gradient(circle,rgba(197,169,132,0.08),transparent_70%)]" />
 
             <div className="relative flex flex-col justify-between gap-6 sm:flex-row sm:items-start">
-              <div>
+              <div className="min-w-0">
                 <p className="text-[10px] font-semibold tracking-[0.18em] text-[#C5A984]">
                   YOUR CURRENT PLAN
                 </p>
-                <h2 className="mt-3 text-2xl font-semibold text-[#F0ECE5] sm:text-3xl">
-                  Software Engineer Intern
+
+                <h2 className="mt-3 break-words text-2xl font-semibold text-[#F0ECE5] sm:text-3xl">
+                  {roadmap.title}
                 </h2>
-                <p className="mt-3 max-w-xl text-sm leading-6 text-[#AAA093]">
-                  An eight-week, DSA-focused plan covering essential problem
-                  patterns and interview practice.
+
+                <p className="mt-3 max-w-3xl whitespace-pre-line text-sm leading-6 text-[#AAA093]">
+                  {roadmap.overview}
                 </p>
 
                 <div className="mt-5 flex flex-wrap gap-2">
-                  <span className="rounded-full border border-[#65513C]/70 bg-[#332A21] px-3 py-1.5 text-xs font-medium text-[#D8BD98]">
-                    8-week plan
-                  </span>
-                  <span className="rounded-full border border-[#465B45] bg-[#293328] px-3 py-1.5 text-xs font-medium text-[#B5C4AA]">
-                    DSA focused
-                  </span>
+                  <Pill>{savedCriteria?.role || form.role}</Pill>
+                  <Pill>
+                    {savedCriteria?.duration || `${totalWeeks} weeks`}
+                  </Pill>
+                  <Pill>
+                    {savedCriteria?.hours || "Flexible schedule"}/week
+                  </Pill>
+                  {savedCriteria?.priority && (
+                    <Pill>{savedCriteria.priority}</Pill>
+                  )}
                 </div>
               </div>
 
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[#65513C] bg-[#413526] text-[#D8BD98]">
-                <Map size={23} />
+              <div className="flex shrink-0 items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setForm({ ...INITIAL_FORM, ...(savedCriteria || {}) });
+                    setShowSetup(true);
+                    setError("");
+                    setSaveMessage("");
+                  }}
+                  className="inline-flex items-center gap-2 rounded-xl border border-[#65513C] bg-[#332A21] px-4 py-2.5 text-sm font-medium text-[#D8BD98] transition hover:bg-[#413526]"
+                >
+                  <RefreshCw size={15} />
+                  Regenerate
+                </button>
               </div>
             </div>
 
             <div className="relative mt-8 border-t border-[#65513C]/60 pt-6">
               <div className="flex items-end justify-between gap-4">
                 <div>
-                  <p className="text-sm text-[#AAA093]">Overall progress</p>
+                  <p className="text-sm text-[#AAA093]">Task completion</p>
                   <p className="mt-1 text-4xl font-semibold tabular-nums text-[#F0E6D8]">
                     {progress}%
                   </p>
                 </div>
                 <p className="text-right text-sm text-[#AAA093]">
-                  {remainingWeeks === 0
-                    ? "All weeks completed!"
-                    : `${remainingWeeks} ${
-                        remainingWeeks === 1 ? "week" : "weeks"
-                      } remaining`}
+                  {completedCount} of {totalTasks} tasks
                 </p>
               </div>
 
@@ -437,57 +626,54 @@ function Roadmap() {
                 aria-label="Overall roadmap progress"
               >
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-[#9B7B53] via-[#D8BD98] to-[#A4B49A] shadow-[0_0_14px_rgba(197,169,132,0.18)] transition-all duration-500"
+                  className="h-full rounded-full bg-gradient-to-r from-[#9B7B53] via-[#D8BD98] to-[#A4B49A] transition-all duration-500"
                   style={{ width: `${progress}%` }}
                 />
               </div>
 
               <div className="mt-3 flex justify-between text-xs text-[#928A80]">
-                <span>{completedCount} completed</span>
+                <span>{completedWeeks.length} completed weeks</span>
                 <span>{totalWeeks} total weeks</span>
               </div>
             </div>
           </section>
 
-          {/* Timeline and side panels */}
           <section className="grid grid-cols-1 gap-5 lg:grid-cols-[1.35fr_0.65fr]">
             <div className="rounded-[26px] border border-[#403B35] bg-gradient-to-b from-[#23211E] to-[#1B1A19] p-5 shadow-[0_14px_38px_rgba(0,0,0,0.12),inset_0_1px_0_rgba(255,255,255,0.035)] sm:p-7">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h2 className="text-xl font-semibold text-[#F0ECE5]">
-                    Your eight-week plan
+                    Your learning plan
                   </h2>
                   <p className="mt-2 text-sm leading-6 text-[#928A80]">
-                    Work through each topic and mark weeks complete as you go.
+                    Expand a week to view its tasks, resources, and deliverable.
                   </p>
                 </div>
 
                 <span className="rounded-full border border-[#51483D] bg-[#292621] px-3 py-1.5 text-xs font-medium text-[#C5A984]">
-                  {completedCount === totalWeeks
+                  {completedWeeks.length === totalWeeks
                     ? "Plan completed"
-                    : `Week ${currentWeek} of ${totalWeeks}`}
+                    : `Week ${currentWeek?.week || totalWeeks} of ${totalWeeks}`}
                 </span>
               </div>
 
-              <div className="mt-8">
-                {roadmapWeeks.map((week, index) => (
-                  <RoadmapItem
+              <div className="mt-8 space-y-3">
+                {roadmap.weeks.map((week) => (
+                  <WeekCard
                     key={week.week}
-                    {...week}
-                    completed={completedWeeks.includes(week.week)}
-                    current={
-                      !completedWeeks.includes(week.week) &&
-                      week.week === currentWeek
-                    }
-                    isLast={index === roadmapWeeks.length - 1}
-                    disabled={isSaving}
-                    onToggle={() => toggleWeek(week.week)}
+                    week={week}
+                    expanded={expandedWeeks.includes(week.week)}
+                    onExpand={() => toggleWeek(week.week)}
+                    completedSet={completedSet}
+                    onToggleTask={toggleTask}
+                    onMarkWeekComplete={markWeekComplete}
+                    disabled={isSaving || isGenerating}
                   />
                 ))}
               </div>
 
-              {completedCount === totalWeeks && (
-                <div className="mt-3 rounded-2xl border border-[#465B45] bg-gradient-to-r from-[#253025] to-[#202720] p-5">
+              {completedWeeks.length === totalWeeks && totalWeeks > 0 && (
+                <div className="mt-5 rounded-2xl border border-[#465B45] bg-gradient-to-r from-[#253025] to-[#202720] p-5">
                   <div className="flex items-start gap-3">
                     <Trophy
                       size={22}
@@ -498,8 +684,8 @@ function Roadmap() {
                         You did it!
                       </h3>
                       <p className="mt-1 text-sm leading-6 text-[#A7B49D]">
-                        You've marked all eight weeks complete. Keep your skills
-                        sharp with mixed problems and mock interviews.
+                        You've completed every task in this roadmap. Keep
+                        practicing and apply what you've learned.
                       </p>
                     </div>
                   </div>
@@ -508,41 +694,40 @@ function Roadmap() {
             </div>
 
             <div className="space-y-5">
-              {/* Recommendation */}
-              <div className="relative overflow-hidden rounded-[26px] border border-[#65513C]/70 bg-gradient-to-br from-[#332A21] via-[#29231D] to-[#211F1B] p-6 shadow-[0_12px_30px_rgba(0,0,0,0.12),inset_0_1px_0_rgba(255,255,255,0.04)]">
+              <div className="relative overflow-hidden rounded-[26px] border border-[#65513C]/70 bg-gradient-to-br from-[#332A21] via-[#29231D] to-[#211F1B] p-6">
                 <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-[radial-gradient(circle,rgba(197,169,132,0.08),transparent_70%)]" />
-
                 <span className="relative flex h-11 w-11 items-center justify-center rounded-2xl border border-[#65513C] bg-[#413526] text-[#D8BD98]">
                   <Sparkles size={21} />
                 </span>
 
                 <p className="relative mt-5 text-[10px] font-semibold tracking-[0.18em] text-[#C5A984]">
-                  STUDY RECOMMENDATION
+                  CURRENT FOCUS
                 </p>
-
                 <h3 className="relative mt-2 text-xl font-semibold text-[#F0ECE5]">
-                  {currentTopic
-                    ? `Focus on ${currentTopic.title}`
-                    : "Keep your momentum going"}
+                  {currentWeek?.title || "Roadmap completed"}
                 </h3>
-
                 <p className="relative mt-3 text-sm leading-6 text-[#AAA093]">
-                  {currentTopic
-                    ? currentTopic.description
-                    : "Revisit challenging topics and practice mixed interview problems to reinforce what you've learned."}
+                  {currentWeek?.description ||
+                    "All weekly tasks are complete. Revisit difficult topics and continue building your skills."}
                 </p>
 
-                {currentWeek !== null && (
+                {currentWeek && (
                   <button
                     type="button"
-                    onClick={() =>
+                    onClick={() => {
+                      setExpandedWeeks((previous) =>
+                        previous.includes(currentWeek.week)
+                          ? previous
+                          : [...previous, currentWeek.week]
+                      );
+
                       document
-                        .getElementById(`roadmap-week-${currentWeek}`)
+                        .getElementById(`roadmap-week-${currentWeek.week}`)
                         ?.scrollIntoView({
                           behavior: "smooth",
                           block: "center",
-                        })
-                    }
+                        });
+                    }}
                     className="relative mt-5 inline-flex items-center gap-2 text-sm font-semibold text-[#D8BD98] transition hover:gap-3"
                   >
                     View current goals
@@ -551,238 +736,520 @@ function Roadmap() {
                 )}
               </div>
 
-              {/* Current focus */}
-              <div className="rounded-[26px] border border-[#403B35] bg-gradient-to-b from-[#23211E] to-[#1B1A19] p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
+              <div className="rounded-[26px] border border-[#403B35] bg-gradient-to-b from-[#23211E] to-[#1B1A19] p-6">
                 <div className="flex items-center gap-3">
                   <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#465B45] bg-[#293328] text-[#B5C4AA]">
                     <Clock3 size={19} />
                   </span>
                   <div>
                     <p className="text-[10px] font-semibold tracking-[0.15em] text-[#928A80]">
-                      CURRENT FOCUS
+                      YOUR COMMITMENT
                     </p>
                     <h3 className="mt-1 font-semibold text-[#F0ECE5]">
-                      {currentTopic?.title ?? "Roadmap completed"}
+                      {savedCriteria?.hours || form.hours} per week
                     </h3>
                   </div>
                 </div>
 
-                <div className="mt-6">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-[#928A80]">Completion</span>
-                    <span className="font-semibold text-[#D8BD98]">
-                      {progress}%
-                    </span>
-                  </div>
-                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#35312B]">
-                    <div
-                      className="h-full rounded-full bg-gradient-to-r from-[#9B7B53] to-[#A4B49A] transition-all duration-500"
-                      style={{ width: `${progress}%` }}
-                    />
-                  </div>
-                </div>
-
-                <div className="mt-5 rounded-2xl border border-[#403B35] bg-[#191817] p-4">
+                <div className="mt-6 rounded-2xl border border-[#403B35] bg-[#191817] p-4">
                   <p className="text-sm font-semibold text-[#E9E2D8]">
-                    {currentTopic ? "What's on the agenda?" : "What's next?"}
+                    Weekly deliverable
                   </p>
                   <p className="mt-2 text-sm leading-6 text-[#928A80]">
-                    {currentTopic
-                      ? currentTopic.description
-                      : "Revisit difficult topics, solve mixed DSA problems, and practice mock interviews."}
+                    {currentWeek?.deliverable ||
+                      "Complete your remaining tasks and review your learning outcomes."}
                   </p>
                 </div>
 
                 <button
                   type="button"
-                  onClick={() =>
-                    currentTopic && toggleWeek(currentTopic.week)
-                  }
-                  disabled={!currentTopic || isSaving}
-                  className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl border border-[#D8C1A0] bg-gradient-to-br from-[#D8C1A0] to-[#B39470] px-4 py-3 text-sm font-semibold text-[#241E17] transition hover:brightness-110 disabled:cursor-not-allowed disabled:border-[#403B35] disabled:bg-[#302D28] disabled:text-[#746D63]"
-                >
-                  <Check size={16} />
-                  {currentTopic
-                    ? "Mark current week complete"
-                    : "All weeks completed"}
-                </button>
-              </div>
-
-              {/* Manage progress */}
-              <div className="rounded-[24px] border border-[#403B35] bg-[#201F1C] p-5">
-                <h3 className="text-sm font-semibold text-[#E9E2D8]">
-                  Manage your progress
-                </h3>
-                <p className="mt-1 text-xs leading-5 text-[#928A80]">
-                  Reset completed weeks if you'd like to start over.
-                </p>
-                <button
-                  type="button"
-                  onClick={handleReset}
-                  disabled={isSaving}
-                  className="mt-4 inline-flex items-center gap-2 rounded-xl border border-[#51483D] px-4 py-2.5 text-sm font-medium text-[#C9C1B6] transition hover:border-[#80694C] hover:bg-[#332A21] disabled:opacity-50"
+                  onClick={resetProgress}
+                  disabled={isSaving || isGenerating || completedCount === 0}
+                  className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#51483D] px-4 py-3 text-sm font-medium text-[#C9C1B6] transition hover:border-[#80694C] hover:bg-[#332A21] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <RotateCcw size={15} />
-                  Reset progress
+                  Reset task progress
                 </button>
               </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setShowRoadmap(false);
-                  setError("");
-                  setSaveMessage("");
-                }}
-                disabled={isSaving}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#403B35] bg-[#201F1C] px-4 py-3 text-sm font-medium text-[#AAA093] transition hover:border-[#65513C] hover:bg-[#292621] disabled:opacity-50"
-              >
-                <BookOpen size={16} />
-                Hide roadmap
-              </button>
+              <div className="rounded-[24px] border border-[#403B35] bg-[#201F1C] p-5">
+                <h3 className="text-sm font-semibold text-[#E9E2D8]">
+                  Your roadmap settings
+                </h3>
+                <div className="mt-4 space-y-3 text-sm">
+                  <SettingRow
+                    label="Current level"
+                    value={savedCriteria?.level || form.level}
+                  />
+                  <SettingRow
+                    label="Priority"
+                    value={savedCriteria?.priority || form.priority}
+                  />
+                  <SettingRow
+                    label="Duration"
+                    value={savedCriteria?.duration || `${totalWeeks} weeks`}
+                  />
+                </div>
+              </div>
             </div>
           </section>
         </>
-      ) : (
-        <section className="rounded-[26px] border border-[#403B35] bg-gradient-to-b from-[#23211E] to-[#1B1A19] p-7 text-center shadow-[0_14px_38px_rgba(0,0,0,0.12)] sm:p-10">
-          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-[#65513C] bg-[#332A21] text-[#D4B994]">
-            <Map size={25} />
-          </span>
-
-          <h2 className="mt-5 text-xl font-semibold text-[#F0ECE5]">
-            Your roadmap is tucked away.
-          </h2>
-          <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[#AAA093]">
-            Your saved progress is unchanged. Restore the view to continue
-            tracking your eight-week plan.
-          </p>
-
-          <button
-            type="button"
-            onClick={() => setShowRoadmap(true)}
-            className="mt-6 inline-flex items-center gap-2 rounded-xl border border-[#D8C1A0] bg-gradient-to-br from-[#D8C1A0] to-[#B39470] px-5 py-3 text-sm font-semibold text-[#241E17] transition hover:brightness-110"
-          >
-            Return to roadmap
-            <ArrowRight size={16} />
-          </button>
-
-          <div>
-            <button
-              type="button"
-              onClick={handleRestore}
-              disabled={isSaving}
-              className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-[#928A80] transition hover:text-[#D8BD98] disabled:opacity-50"
-            >
-              <RotateCcw size={15} />
-              Restore plan and reset progress
-            </button>
-          </div>
-        </section>
       )}
     </div>
   );
 }
 
-function RoadmapItem({
-  week,
-  title,
-  description,
-  completed,
-  current,
-  isLast,
-  disabled,
-  onToggle,
+function SetupForm({
+  form,
+  updateForm,
+  onSubmit,
+  isGenerating,
+  hasRoadmap,
+  onCancel,
 }) {
   return (
-    <div id={`roadmap-week-${week}`} className="flex scroll-mt-24 gap-4">
-      <div className="flex flex-col items-center">
-        <div
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border transition ${
-            completed
-              ? "border-[#52684C] bg-[#293328] text-[#B5C4AA]"
-              : current
-                ? "border-[#80694C] bg-[#332A21] text-[#D8BD98] shadow-[0_0_18px_rgba(197,169,132,0.10)]"
-                : "border-[#403B35] bg-[#292621] text-[#81796F]"
-          }`}
-        >
-          {completed ? (
-            <CheckCircle2 size={19} />
-          ) : current ? (
-            <span className="h-2.5 w-2.5 rounded-full bg-[#D8BD98]" />
-          ) : (
-            <Circle size={18} />
-          )}
-        </div>
-
-        {!isLast && (
-          <div
-            className={`mt-2 w-px flex-1 ${
-              completed ? "bg-[#52684C]" : "bg-[#403B35]"
-            }`}
-          />
-        )}
-      </div>
-
-      <div
-        className={`mb-5 min-w-0 flex-1 rounded-2xl border p-4 transition-all duration-200 sm:p-5 ${
-          current
-            ? "border-[#65513C]/80 bg-gradient-to-br from-[#29241E] to-[#201E1A] shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]"
-            : completed
-              ? "border-[#384738] bg-[#1F251F]"
-              : "border-[#35312B] bg-[#201F1C] hover:border-[#51483D]"
-        }`}
+    <section className="grid grid-cols-1 gap-5 xl:grid-cols-[1.15fr_0.85fr]">
+      <form
+        onSubmit={onSubmit}
+        className="relative overflow-hidden rounded-[26px] border border-[#403B35] bg-gradient-to-br from-[#22211F] to-[#1B1A19] p-6 shadow-[0_12px_35px_rgba(0,0,0,0.16)] sm:p-8"
       >
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[#928A80]">
-            Week {week}
-          </span>
+        <p className="text-[10px] font-semibold tracking-[0.19em] text-[#B7A18A]">
+          BUILD YOUR ROADMAP
+        </p>
+        <h2 className="mt-3 text-2xl font-semibold tracking-tight text-[#F0ECE5]">
+          Let's plan your next move.
+        </h2>
+        <p className="mt-2 text-sm leading-6 text-[#A59D93]">
+          Tell us where you want to go. Gemini will create a learning plan
+          tailored to your goals and available time.
+        </p>
 
-          {current && (
-            <span className="rounded-full border border-[#65513C] bg-[#332A21] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#D8BD98]">
-              Up next
-            </span>
-          )}
+        <div className="mt-7 space-y-6">
+          <div>
+            <label
+              htmlFor="roadmap-role"
+              className="text-sm font-medium text-[#D9D2C8]"
+            >
+              Target role
+            </label>
+            <input
+              id="roadmap-role"
+              type="text"
+              value={form.role}
+              onChange={(event) => updateForm("role", event.target.value)}
+              maxLength={255}
+              required
+              placeholder="e.g. Data Analyst, Backend Developer"
+              className="mt-2 w-full rounded-xl border border-[#454039] bg-[#171615] px-4 py-3.5 text-sm text-[#F0ECE5] placeholder:text-[#746D63] outline-none transition focus:border-[#A58A68] focus:ring-4 focus:ring-[#C5A984]/10"
+            />
+          </div>
 
-          {completed && (
-            <span className="rounded-full border border-[#465B45] bg-[#293328] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#B5C4AA]">
-              Completed
-            </span>
-          )}
+          <FormSelect
+            id="roadmap-level"
+            label="Current skill level"
+            value={form.level}
+            options={LEVELS}
+            onChange={(value) => updateForm("level", value)}
+          />
+
+          <FormSelect
+            id="roadmap-hours"
+            label="Time available per week"
+            value={form.hours}
+            options={HOURS}
+            onChange={(value) => updateForm("hours", value)}
+          />
+
+          <FormSelect
+            id="roadmap-duration"
+            label="Target timeline"
+            value={form.duration}
+            options={DURATIONS}
+            onChange={(value) => updateForm("duration", value)}
+          />
+
+          <FormSelect
+            id="roadmap-priority"
+            label="Main priority"
+            value={form.priority}
+            options={PRIORITIES}
+            onChange={(value) => updateForm("priority", value)}
+          />
+
+          <div>
+            <label
+              htmlFor="roadmap-skills"
+              className="text-sm font-medium text-[#D9D2C8]"
+            >
+              Existing skills or preferences{" "}
+              <span className="text-[#81796F]">(optional)</span>
+            </label>
+            <textarea
+              id="roadmap-skills"
+              value={form.skills}
+              onChange={(event) => updateForm("skills", event.target.value)}
+              maxLength={2000}
+              rows={4}
+              placeholder="e.g. Know Python and SQL, have built a React project..."
+              className="mt-2 w-full resize-y rounded-xl border border-[#454039] bg-[#171615] px-4 py-3.5 text-sm leading-6 text-[#F0ECE5] placeholder:text-[#746D63] outline-none transition focus:border-[#A58A68] focus:ring-4 focus:ring-[#C5A984]/10"
+            />
+          </div>
         </div>
-
-        <h3
-          className={`mt-2 text-base font-semibold ${
-            completed ? "text-[#B9C0B2]" : "text-[#F0ECE5]"
-          }`}
-        >
-          {title}
-        </h3>
-
-        <p className="mt-2 text-sm leading-6 text-[#928A80]">{description}</p>
 
         <button
-          type="button"
-          onClick={onToggle}
-          disabled={disabled}
-          className={`mt-4 inline-flex items-center gap-2 rounded-xl border px-3.5 py-2.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
-            completed
-              ? "border-[#465B45] text-[#B5C4AA] hover:bg-[#293328]"
-              : "border-[#51483D] text-[#C9C1B6] hover:border-[#80694C] hover:bg-[#332A21]"
-          }`}
+          type="submit"
+          disabled={isGenerating || !form.role.trim()}
+          className="group mt-8 flex w-full items-center justify-center gap-2 rounded-xl border border-[#D8C1A0] bg-gradient-to-r from-[#D8C1A0] via-[#C5A984] to-[#B39470] px-5 py-3.5 text-sm font-semibold text-[#241E17] transition hover:-translate-y-0.5 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {completed ? (
+          {isGenerating ? (
             <>
-              <RotateCcw size={13} />
-              Mark incomplete
+              <LoaderCircle size={17} className="animate-spin" />
+              Generating roadmap...
             </>
           ) : (
             <>
-              <Check size={13} />
-              Mark complete
+              <Sparkles size={17} />
+              {hasRoadmap ? "Generate new roadmap" : "Generate my roadmap"}
+              <ArrowRight
+                size={17}
+                className="transition-transform group-hover:translate-x-1"
+              />
             </>
           )}
         </button>
+
+        {hasRoadmap && (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="mt-3 w-full rounded-xl border border-[#403B35] px-4 py-3 text-sm font-medium text-[#AAA093] transition hover:bg-[#292621]"
+          >
+            Cancel and return to current roadmap
+          </button>
+        )}
+      </form>
+
+      <div className="flex flex-col gap-5">
+        <div className="relative overflow-hidden rounded-[26px] border border-[#51473A] bg-gradient-to-br from-[#302920] via-[#27231E] to-[#211F1C] p-6 sm:p-7">
+          <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#796348]/60 bg-[#3A3025] text-[#D8BD98]">
+            <BookOpen size={21} />
+          </span>
+          <h3 className="mt-5 text-xl font-semibold text-[#F0E7D9]">
+            A plan that fits your life.
+          </h3>
+          <p className="mt-2 text-sm leading-6 text-[#B3A797]">
+            Your roadmap adapts to your current experience, your available time,
+            and the kind of preparation you need.
+          </p>
+
+          <div className="mt-6 space-y-4">
+            {[
+              "Weekly goals with actionable tasks.",
+              "Practical deliverables and useful resources.",
+              "Persistent task-level progress tracking.",
+              "A new plan whenever your goals change.",
+            ].map((tip, index) => (
+              <div key={tip} className="flex items-start gap-3">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[#68543D] bg-[#3A3025] text-[11px] font-semibold text-[#D8BD98]">
+                  {String(index + 1).padStart(2, "0")}
+                </span>
+                <p className="pt-0.5 text-sm leading-5 text-[#C0B5A6]">
+                  {tip}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-[26px] border border-[#403B35] bg-gradient-to-b from-[#23211E] to-[#1B1A19] p-6">
+          <div className="flex items-center gap-3">
+            <Target size={20} className="text-[#C5A984]" />
+            <h3 className="font-semibold text-[#F0ECE5]">Your choices</h3>
+          </div>
+          <div className="mt-5 space-y-3 text-sm">
+            <SettingRow label="Target role" value={form.role || "Not selected"} />
+            <SettingRow label="Experience" value={form.level} />
+            <SettingRow label="Weekly time" value={form.hours} />
+            <SettingRow label="Timeline" value={form.duration} />
+            <SettingRow label="Priority" value={form.priority} />
+          </div>
+        </div>
       </div>
+    </section>
+  );
+}
+
+function FormSelect({ id, label, value, options, onChange }) {
+  return (
+    <div>
+      <label
+        htmlFor={id}
+        className="text-sm font-medium text-[#D9D2C8]"
+      >
+        {label}
+      </label>
+      <div className="relative mt-2">
+        <select
+          id={id}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className="w-full appearance-none rounded-xl border border-[#454039] bg-[#171615] px-4 py-3.5 pr-10 text-sm text-[#F0ECE5] outline-none transition focus:border-[#A58A68] focus:ring-4 focus:ring-[#C5A984]/10"
+        >
+          {options.map((option) => (
+            <option key={option} value={option} className="bg-[#1D1C1A]">
+              {option}
+            </option>
+          ))}
+        </select>
+        <ChevronDown
+          size={16}
+          className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#928A80]"
+        />
+      </div>
+    </div>
+  );
+}
+
+function WeekCard({
+  week,
+  expanded,
+  onExpand,
+  completedSet,
+  onToggleTask,
+  onMarkWeekComplete,
+  disabled,
+}) {
+  const tasks = Array.isArray(week.tasks) ? week.tasks : [];
+  const doneCount = tasks.filter((task) => completedSet.has(task.id)).length;
+  const isComplete = tasks.length > 0 && doneCount === tasks.length;
+  const remainingTasks = tasks.filter(
+    (task) => !completedSet.has(task.id)
+  ).length;
+
+  return (
+    <div
+      id={`roadmap-week-${week.week}`}
+      className={`scroll-mt-24 overflow-hidden rounded-2xl border transition-colors ${
+        isComplete
+          ? "border-[#384738] bg-[#1F251F]"
+          : "border-[#403B35] bg-[#201F1C] hover:border-[#51483D]"
+      }`}
+    >
+      <button
+        type="button"
+        onClick={onExpand}
+        aria-expanded={expanded}
+        className="flex w-full items-start gap-3 p-4 text-left sm:p-5"
+      >
+        <span
+          className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border ${
+            isComplete
+              ? "border-[#52684C] bg-[#293328] text-[#B5C4AA]"
+              : "border-[#51483D] bg-[#302920] text-[#D8BD98]"
+          }`}
+        >
+          {isComplete ? (
+            <CheckCircle2 size={19} />
+          ) : (
+            <span className="text-sm font-semibold">{week.week}</span>
+          )}
+        </span>
+
+        <span className="min-w-0 flex-1">
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[#928A80]">
+              Week {week.week}
+            </span>
+
+            {week.phase && (
+              <span className="rounded-full border border-[#51483D] px-2 py-0.5 text-[10px] text-[#C5A984]">
+                {week.phase}
+              </span>
+            )}
+
+            {isComplete && (
+              <span className="rounded-full border border-[#465B45] bg-[#293328] px-2 py-0.5 text-[10px] font-semibold text-[#B5C4AA]">
+                Completed
+              </span>
+            )}
+          </span>
+
+          <span className="mt-2 block text-base font-semibold text-[#F0ECE5]">
+            {week.title}
+          </span>
+
+          <span className="mt-2 block text-sm leading-6 text-[#928A80]">
+            {week.description}
+          </span>
+
+          <span className="mt-3 flex flex-wrap items-center gap-3 text-xs text-[#81796F]">
+            <span className="inline-flex items-center gap-1.5">
+              <CheckCircle2 size={13} />
+              {doneCount}/{tasks.length} tasks
+            </span>
+
+            {tasks.length > 0 && (
+              <span className="inline-flex items-center gap-1.5">
+                <Clock3 size={13} />
+                {tasks.reduce(
+                  (sum, task) => sum + (Number(task.hours) || 0),
+                  0
+                )}{" "}
+                estimated hours
+              </span>
+            )}
+          </span>
+        </span>
+
+        <ChevronDown
+          size={18}
+          className={`mt-2 shrink-0 text-[#928A80] transition-transform ${
+            expanded ? "rotate-180" : ""
+          }`}
+        />
+      </button>
+
+      {expanded && (
+        <div className="border-t border-[#403B35] p-4 sm:p-5">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-xs text-[#928A80]">
+              {remainingTasks === 0
+                ? "All tasks in this week are complete."
+                : `${remainingTasks} task${
+                    remainingTasks === 1 ? "" : "s"
+                  } remaining`}
+            </p>
+
+            <button
+  type="button"
+  onClick={() => onMarkWeekComplete(week)}
+  disabled={disabled || tasks.length === 0}
+  className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#65513C] bg-[#332A21] px-3.5 py-2 text-xs font-semibold text-[#D8BD98] transition hover:border-[#A58A68] hover:bg-[#413526] disabled:cursor-not-allowed disabled:opacity-50"
+>
+  {isComplete ? <RotateCcw size={15} /> : <CheckCircle2 size={15} />}
+  {isComplete ? "Unmark all tasks" : "Mark all tasks done"}
+</button>
+          </div>
+
+          <div className="space-y-4">
+            {tasks.map((task) => {
+              const completed = completedSet.has(task.id);
+
+              return (
+                <div
+                  key={task.id}
+                  className="rounded-xl border border-[#403B35] bg-[#191817] p-4"
+                >
+                  <div className="flex items-start gap-3">
+                    <button
+                      type="button"
+                      onClick={() => onToggleTask(task.id)}
+                      disabled={disabled}
+                      aria-pressed={completed}
+                      aria-label={`Mark ${task.title} ${
+                        completed ? "incomplete" : "complete"
+                      }`}
+                      className={`mt-0.5 shrink-0 transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                        completed
+                          ? "text-[#A4B49A]"
+                          : "text-[#81796F] hover:text-[#D8BD98]"
+                      }`}
+                    >
+                      {completed ? (
+                        <CheckCircle2 size={21} />
+                      ) : (
+                        <Circle size={21} />
+                      )}
+                    </button>
+
+                    <div className="min-w-0 flex-1">
+                      <h4
+                        className={`text-sm font-semibold ${
+                          completed
+                            ? "text-[#A7B49D]"
+                            : "text-[#E9E2D8]"
+                        }`}
+                      >
+                        {task.title}
+                      </h4>
+
+                      <p className="mt-2 whitespace-pre-line text-sm leading-6 text-[#928A80]">
+                        {task.description}
+                      </p>
+
+                      <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-[#81796F]">
+                        <span className="inline-flex items-center gap-1.5">
+                          <Clock3 size={13} />
+                          {task.hours}{" "}
+                          {Number(task.hours) === 1 ? "hour" : "hours"}
+                        </span>
+
+                        {completed && (
+                          <span className="text-[#A4B49A]">Completed</span>
+                        )}
+                      </div>
+
+                      {task.resourceTitle && (
+                        <div className="mt-3">
+                          {task.resourceUrl ? (
+                            <a
+                              href={task.resourceUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-2 text-xs font-medium text-[#D8BD98] underline-offset-4 hover:underline"
+                            >
+                              <BookOpen size={14} />
+                              {task.resourceTitle}
+                              <ExternalLink size={12} />
+                            </a>
+                          ) : (
+                            <span className="inline-flex items-center gap-2 text-xs text-[#B7A18A]">
+                              <BookOpen size={14} />
+                              {task.resourceTitle}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+
+            {week.deliverable && (
+              <div className="rounded-xl border border-[#65513C]/60 bg-[#302920]/50 p-4">
+                <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-[#D8BD98]">
+                  <Trophy size={14} />
+                  Weekly deliverable
+                </p>
+
+                <p className="mt-2 text-sm leading-6 text-[#C0B5A6]">
+                  {week.deliverable}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Pill({ children }) {
+  return (
+    <span className="rounded-full border border-[#65513C]/70 bg-[#332A21] px-3 py-1.5 text-xs font-medium text-[#D8BD98]">
+      {children}
+    </span>
+  );
+}
+
+function SettingRow({ label, value }) {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <span className="text-[#928A80]">{label}</span>
+      <span className="max-w-[65%] text-right font-medium text-[#D9D2C8]">
+        {value || "Not specified"}
+      </span>
     </div>
   );
 }

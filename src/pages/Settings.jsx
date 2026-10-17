@@ -1,57 +1,40 @@
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   User,
-  Bell,
   Lock,
-  Palette,
-  Moon,
   ChevronRight,
   Sparkles,
   Check,
-  Info,
   ShieldCheck,
   Settings2,
-  Sun,
+  Eye,
+  EyeOff,
+  X,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
-const DEFAULT_NOTIFICATIONS = {
-  reminders: true,
-  applications: true,
-  weeklyProgress: false,
-};
+const API_URL = (
+  import.meta.env.VITE_API_URL || "http://localhost:5000"
+).replace(/\/+$/, "");
 
 function Settings() {
   const { user } = useAuth();
 
-  const [notifications, setNotifications] = useState(() => {
-    try {
-      const saved = localStorage.getItem("placement-notifications");
-      return saved
-        ? { ...DEFAULT_NOTIFICATIONS, ...JSON.parse(saved) }
-        : DEFAULT_NOTIFICATIONS;
-    } catch {
-      return { ...DEFAULT_NOTIFICATIONS };
-    }
+  const [passwordFormOpen, setPasswordFormOpen] = useState(false);
+  const [showPasswords, setShowPasswords] = useState({
+    current: false,
+    new: false,
+    confirm: false,
   });
-
-  const [notice, setNotice] = useState("");
-
-  useEffect(() => {
-    localStorage.setItem(
-      "placement-notifications",
-      JSON.stringify(notifications)
-    );
-  }, [notifications]);
-
-  const updateNotification = (key) => {
-    setNotifications((previous) => ({
-      ...previous,
-      [key]: !previous[key],
-    }));
-    setNotice("Notification preferences saved on this device.");
-  };
+  const [passwords, setPasswords] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState("");
+  const [passwordError, setPasswordError] = useState("");
 
   const displayName = user?.name || "Student";
   const email = user?.email || "No email available";
@@ -64,10 +47,135 @@ function Settings() {
     .slice(0, 2)
     .toUpperCase();
 
-  const handlePasswordClick = () => {
-    setNotice(
-      "Password changes are not available in Settings yet. Your current account and login remain unchanged."
-    );
+  const togglePasswordVisibility = (field) => {
+    setShowPasswords((previous) => ({
+      ...previous,
+      [field]: !previous[field],
+    }));
+  };
+
+  const openPasswordForm = () => {
+    setPasswordFormOpen((previous) => !previous);
+    setPasswordError("");
+    setPasswordMessage("");
+  };
+
+  const closePasswordForm = () => {
+    setPasswordFormOpen(false);
+    setPasswords({
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: "",
+    });
+    setPasswordError("");
+    setPasswordMessage("");
+    setShowPasswords({
+      current: false,
+      new: false,
+      confirm: false,
+    });
+  };
+
+  const handlePasswordChange = (event) => {
+    const { name, value } = event.target;
+
+    setPasswords((previous) => ({
+      ...previous,
+      [name]: value,
+    }));
+
+    setPasswordError("");
+    setPasswordMessage("");
+  };
+
+  const handlePasswordSubmit = async (event) => {
+    event.preventDefault();
+    setPasswordError("");
+    setPasswordMessage("");
+
+    const { currentPassword, newPassword, confirmPassword } = passwords;
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setPasswordError("Please fill in all three password fields.");
+      return;
+    }
+
+    if (newPassword.length < 6 || newPassword.length > 72) {
+      setPasswordError(
+        "Your new password must be between 6 and 72 characters."
+      );
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError("The new passwords do not match.");
+      return;
+    }
+
+    if (currentPassword === newPassword) {
+      setPasswordError(
+        "Your new password must be different from your current password."
+      );
+      return;
+    }
+
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      setPasswordError("Your session is missing. Please sign in again.");
+      return;
+    }
+
+    setPasswordLoading(true);
+
+    try {
+      const response = await fetch(
+        `${API_URL}/api/auth/change-password`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            currentPassword,
+            newPassword,
+          }),
+        }
+      );
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            "Unable to change your password. Please try again."
+        );
+      }
+
+      setPasswordMessage(
+        data.message || "Your password has been changed successfully."
+      );
+
+      setPasswords({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
+
+      setShowPasswords({
+        current: false,
+        new: false,
+        confirm: false,
+      });
+    } catch (error) {
+      setPasswordError(
+        error.message ||
+          "Unable to connect to the server. Please try again."
+      );
+    } finally {
+      setPasswordLoading(false);
+    }
   };
 
   return (
@@ -78,7 +186,7 @@ function Settings() {
         <div className="absolute -left-40 top-[55%] h-96 w-96 rounded-full bg-[radial-gradient(circle,rgba(135,145,119,0.035),transparent_70%)] blur-3xl" />
       </div>
 
-      {/* Introduction */}
+      {/* Page header */}
       <section className="relative overflow-hidden rounded-[28px] border border-[#403B35] bg-gradient-to-br from-[#26231F] via-[#1E1C19] to-[#191817] p-6 shadow-[0_18px_55px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(255,255,255,0.05)] sm:p-9">
         <div className="pointer-events-none absolute -right-12 -top-24 h-64 w-64 rounded-full border border-[#C5A984]/10" />
         <div className="pointer-events-none absolute -right-4 -top-16 h-48 w-48 rounded-full bg-[radial-gradient(circle,rgba(197,169,132,0.07),transparent_70%)]" />
@@ -89,53 +197,15 @@ function Settings() {
             YOUR PREFERENCES
           </div>
 
-          <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
-            <div className="max-w-2xl">
-              <h1 className="text-3xl font-semibold tracking-[-0.045em] text-[#F1ECE4] sm:text-5xl">
-                Make it yours.
-              </h1>
-              <p className="mt-4 text-sm leading-7 text-[#AAA197] sm:text-base">
-                Manage your account details and workspace preferences in one
-                place.
-              </p>
-            </div>
+          <h1 className="text-3xl font-semibold tracking-[-0.045em] text-[#F1ECE4] sm:text-5xl">
+            Make it yours.
+          </h1>
 
-            <div className="flex w-fit items-center gap-3 rounded-2xl border border-[#403B35] bg-[#191817]/80 px-4 py-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#65513C]/60 bg-[#332A21] text-[#D4B994]">
-                <ShieldCheck size={19} />
-              </span>
-              <div>
-                <p className="text-sm font-semibold text-[#E9E2D8]">
-                  Account settings
-                </p>
-                <p className="mt-1 text-xs text-[#928A80]">
-                  Personal workspace
-                </p>
-              </div>
-            </div>
-          </div>
+          <p className="mt-4 max-w-2xl text-sm leading-7 text-[#AAA197] sm:text-base">
+            Manage your profile and account security in one place.
+          </p>
         </div>
       </section>
-
-      {/* Feedback */}
-      {notice && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="flex items-start gap-3 rounded-2xl border border-[#65513C]/80 bg-[#332A21] p-4 text-sm text-[#D8BD98]"
-        >
-          <Info size={18} className="mt-0.5 shrink-0" />
-          <p className="flex-1 leading-6">{notice}</p>
-          <button
-            type="button"
-            onClick={() => setNotice("")}
-            aria-label="Dismiss notification"
-            className="rounded-lg p-1 text-[#AAA093] transition hover:bg-[#413526] hover:text-[#F0ECE5]"
-          >
-            <span className="text-lg leading-none">×</span>
-          </button>
-        </div>
-      )}
 
       {/* Profile */}
       <SettingsSection
@@ -154,119 +224,17 @@ function Settings() {
             <h3 className="break-words text-lg font-semibold text-[#F0ECE5]">
               {displayName}
             </h3>
-            <p className="mt-1 break-all text-sm text-[#AAA093]">{email}</p>
+
+            <p className="mt-1 break-all text-sm text-[#AAA093]">
+              {email}
+            </p>
+
             <span className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-[#465B45] bg-[#293328] px-3 py-1 text-xs font-medium text-[#B5C4AA]">
               <ShieldCheck size={13} />
               Signed-in account
             </span>
           </div>
         </div>
-
-        <div className="mt-6 rounded-2xl border border-[#35312B] bg-[#191817] p-4">
-          <p className="text-sm font-medium text-[#E9E2D8]">
-            Account details
-          </p>
-          <p className="mt-1 text-sm leading-6 text-[#928A80]">
-            Your name and email are displayed from your current login session.
-            Editing and saving profile details requires a connected backend
-            feature, so these details aren't editable here yet.
-          </p>
-        </div>
-      </SettingsSection>
-
-      {/* Appearance */}
-      <SettingsSection
-        icon={<Palette size={20} />}
-        iconStyle="border-[#65513C]/70 bg-[#332A21] text-[#D4B994]"
-        title="Appearance"
-        description="Your workspace look and feel"
-        eyebrow="PERSONALIZATION"
-      >
-        <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
-          <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[#65513C]/70 bg-[#332A21] text-[#D4B994]">
-              <Moon size={21} />
-            </div>
-
-            <div>
-              <p className="font-semibold text-[#F0ECE5]">Dark workspace</p>
-              <p className="mt-1 text-sm text-[#928A80]">
-                A consistent charcoal interface with warm, muted accents.
-              </p>
-            </div>
-          </div>
-
-          <span className="inline-flex w-fit items-center gap-2 rounded-full border border-[#465B45] bg-[#293328] px-3 py-2 text-xs font-semibold text-[#B5C4AA]">
-            <Check size={14} />
-            Active theme
-          </span>
-        </div>
-
-        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <ThemeSwatch
-            title="Charcoal"
-            description="Core surfaces"
-            className="bg-gradient-to-br from-[#302D28] to-[#191817]"
-            borderClass="border-[#51483D]"
-          />
-          <ThemeSwatch
-            title="Champagne"
-            description="Highlights"
-            className="bg-gradient-to-br from-[#D8C1A0] to-[#8F7556]"
-            borderClass="border-[#D8C1A0]/40"
-          />
-          <ThemeSwatch
-            title="Sage"
-            description="Positive states"
-            className="bg-gradient-to-br from-[#A4B49A] to-[#465B45]"
-            borderClass="border-[#667A61]"
-          />
-        </div>
-
-        <div className="mt-5 flex items-start gap-3 rounded-2xl border border-[#35312B] bg-[#191817] p-4">
-          <Info size={17} className="mt-0.5 shrink-0 text-[#C5A984]" />
-          <p className="text-xs leading-5 text-[#928A80]">
-            Placement Copilot now uses a dark-only design. The appearance
-            settings here are informational; no theme toggle is needed.
-          </p>
-        </div>
-      </SettingsSection>
-
-      {/* Notifications */}
-      <SettingsSection
-        icon={<Bell size={20} />}
-        iconStyle="border-[#65513C]/70 bg-[#332A21] text-[#D4B994]"
-        title="Notifications"
-        description="Choose which reminders you'd like enabled"
-        eyebrow="PREFERENCES"
-      >
-        <div className="divide-y divide-[#35312B]">
-          <NotificationRow
-            title="Placement reminders"
-            description="Reminders about your preparation goals."
-            enabled={notifications.reminders}
-            onChange={() => updateNotification("reminders")}
-          />
-
-          <NotificationRow
-            title="Application updates"
-            description="Updates about your tracked applications."
-            enabled={notifications.applications}
-            onChange={() => updateNotification("applications")}
-          />
-
-          <NotificationRow
-            title="Weekly progress"
-            description="A weekly summary of your preparation progress."
-            enabled={notifications.weeklyProgress}
-            onChange={() => updateNotification("weeklyProgress")}
-          />
-        </div>
-
-        <p className="mt-5 text-xs leading-5 text-[#81796F]">
-          These preferences are saved locally on this device. Actual email,
-          push, and scheduled notifications aren't connected yet.
-        </p>
       </SettingsSection>
 
       {/* Security */}
@@ -279,7 +247,8 @@ function Settings() {
       >
         <button
           type="button"
-          onClick={handlePasswordClick}
+          onClick={openPasswordForm}
+          aria-expanded={passwordFormOpen}
           className="group flex w-full items-center justify-between gap-4 rounded-2xl border border-[#403B35] bg-[#201F1C] p-4 text-left transition duration-200 hover:border-[#65513C] hover:bg-[#292621] sm:p-5"
         >
           <div className="flex min-w-0 items-center gap-3">
@@ -292,22 +261,170 @@ function Settings() {
                 Change password
               </p>
               <p className="mt-1 text-xs leading-5 text-[#928A80]">
-                Password changes aren't connected yet.
+                Update your password securely.
               </p>
             </div>
           </div>
 
           <ChevronRight
             size={19}
-            className="shrink-0 text-[#81796F] transition group-hover:translate-x-0.5 group-hover:text-[#D8BD98]"
+            className={`shrink-0 text-[#81796F] transition group-hover:text-[#D8BD98] ${
+              passwordFormOpen ? "rotate-90" : ""
+            }`}
           />
         </button>
+
+        {passwordFormOpen && (
+          <form
+            onSubmit={handlePasswordSubmit}
+            className="mt-4 space-y-5 rounded-2xl border border-[#403B35] bg-[#191817] p-4 sm:p-6"
+          >
+            <div>
+              <h3 className="text-base font-semibold text-[#F0ECE5]">
+                Update your password
+              </h3>
+              <p className="mt-1 text-sm leading-6 text-[#928A80]">
+                Enter your current password, then choose a new one.
+              </p>
+            </div>
+
+            {passwordError && (
+              <div
+                role="alert"
+                className="rounded-xl border border-red-900/70 bg-red-950/40 px-4 py-3 text-sm leading-6 text-red-300"
+              >
+                {passwordError}
+              </div>
+            )}
+
+            {passwordMessage && (
+              <div
+                role="status"
+                className="flex items-start gap-2 rounded-xl border border-[#465B45] bg-[#293328] px-4 py-3 text-sm leading-6 text-[#B5C4AA]"
+              >
+                <Check size={17} className="mt-0.5 shrink-0" />
+                <span>{passwordMessage}</span>
+              </div>
+            )}
+
+            <PasswordField
+              label="Current password"
+              name="currentPassword"
+              value={passwords.currentPassword}
+              onChange={handlePasswordChange}
+              visible={showPasswords.current}
+              onToggle={() => togglePasswordVisibility("current")}
+              autoComplete="current-password"
+            />
+
+            <PasswordField
+              label="New password"
+              name="newPassword"
+              value={passwords.newPassword}
+              onChange={handlePasswordChange}
+              visible={showPasswords.new}
+              onToggle={() => togglePasswordVisibility("new")}
+              autoComplete="new-password"
+              minLength={6}
+              maxLength={72}
+            />
+
+            <PasswordField
+              label="Confirm new password"
+              name="confirmPassword"
+              value={passwords.confirmPassword}
+              onChange={handlePasswordChange}
+              visible={showPasswords.confirm}
+              onToggle={() => togglePasswordVisibility("confirm")}
+              autoComplete="new-password"
+              minLength={6}
+              maxLength={72}
+            />
+
+            <p className="text-xs leading-5 text-[#81796F]">
+              Use 6–72 characters. Your current password is required to
+              confirm this change.
+            </p>
+
+            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={closePasswordForm}
+                disabled={passwordLoading}
+                className="rounded-xl border border-[#403B35] px-5 py-3 text-sm font-medium text-[#C2B9AD] transition hover:bg-[#292621] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="submit"
+                disabled={passwordLoading}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#B69A73] bg-[#D4B994] px-5 py-3 text-sm font-semibold text-[#241E17] transition hover:bg-[#E0CBAA] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {passwordLoading ? (
+                  <>
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#241E17]/30 border-t-[#241E17]" />
+                    Updating...
+                  </>
+                ) : (
+                  <>
+                    <Lock size={16} />
+                    Update password
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        )}
       </SettingsSection>
 
-      {/* Footer */}
-      <div className="flex items-center justify-center gap-2 pb-2 text-xs text-[#81796F]">
-        <Sparkles size={13} className="text-[#C5A984]" />
-        Placement Copilot · Your career, one step at a time.
+    </div>
+  );
+}
+
+function PasswordField({
+  label,
+  name,
+  value,
+  onChange,
+  visible,
+  onToggle,
+  autoComplete,
+  minLength,
+  maxLength,
+}) {
+  return (
+    <div>
+      <label
+        htmlFor={name}
+        className="mb-2 block text-sm font-medium text-[#D8D0C5]"
+      >
+        {label}
+      </label>
+
+      <div className="relative">
+        <input
+          id={name}
+          name={name}
+          type={visible ? "text" : "password"}
+          value={value}
+          onChange={onChange}
+          autoComplete={autoComplete}
+          minLength={minLength}
+          maxLength={maxLength}
+          required
+          className="w-full rounded-xl border border-[#403B35] bg-[#201F1C] px-4 py-3 pr-12 text-sm text-[#F0ECE5] outline-none transition placeholder:text-[#81796F] focus:border-[#9D805B] focus:ring-2 focus:ring-[#9D805B]/20"
+          placeholder={`Enter ${label.toLowerCase()}`}
+        />
+
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-label={visible ? "Hide password" : "Show password"}
+          className="absolute inset-y-0 right-0 flex items-center justify-center px-4 text-[#928A80] transition hover:text-[#D4B994]"
+        >
+          {visible ? <EyeOff size={17} /> : <Eye size={17} />}
+        </button>
       </div>
     </div>
   );
@@ -343,52 +460,6 @@ function SettingsSection({
 
       <div className="pt-5">{children}</div>
     </section>
-  );
-}
-
-function NotificationRow({ title, description, enabled, onChange }) {
-  return (
-    <div className="flex items-center justify-between gap-4 py-5 first:pt-0 last:pb-0">
-      <div className="min-w-0">
-        <p className="text-sm font-medium text-[#E9E2D8]">{title}</p>
-        <p className="mt-1 text-xs leading-5 text-[#928A80]">
-          {description}
-        </p>
-      </div>
-
-      <button
-        type="button"
-        role="switch"
-        aria-checked={enabled}
-        aria-label={title}
-        onClick={onChange}
-        className={`relative h-6 w-11 shrink-0 rounded-full border transition-colors ${
-          enabled
-            ? "border-[#667A61] bg-[#52684C]"
-            : "border-[#51483D] bg-[#302D28]"
-        }`}
-      >
-        <span
-          className={`absolute top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#F0ECE5] shadow-sm transition-transform ${
-            enabled ? "translate-x-[21px]" : "translate-x-0.5"
-          }`}
-        >
-          {enabled && <Check size={11} className="text-[#293328]" />}
-        </span>
-      </button>
-    </div>
-  );
-}
-
-function ThemeSwatch({ title, description, className, borderClass }) {
-  return (
-    <div className="rounded-2xl border border-[#35312B] bg-[#191817] p-3">
-      <div
-        className={`h-12 rounded-xl border ${borderClass} ${className}`}
-      />
-      <p className="mt-3 text-sm font-medium text-[#E9E2D8]">{title}</p>
-      <p className="mt-1 text-xs text-[#81796F]">{description}</p>
-    </div>
   );
 }
 

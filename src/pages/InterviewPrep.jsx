@@ -15,30 +15,22 @@ import {
   LoaderCircle,
   MessageSquare,
   Target,
+  Trash2,
 } from "lucide-react";
 
 const API_URL = `${
   import.meta.env.VITE_API_URL || "http://localhost:5000"
 }/api/interview`;
 
-const COLORS = {
-  gold: "#C5A984",
-  text: "#F0ECE5",
-  muted: "#A59D93",
-  surface: "#1D1C1A",
-  border: "#403B35",
-};
-
 function InterviewPrep() {
   const [role, setRole] = useState("Software Engineer Intern");
   const [difficulty, setDifficulty] = useState("Medium");
   const [questionType, setQuestionType] = useState("Technical");
-
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [loadingSessionId, setLoadingSessionId] = useState(null);
-
+  const [deletingSessionId, setDeletingSessionId] = useState(null);
   const [showQuestions, setShowQuestions] = useState(false);
   const [expandedQuestion, setExpandedQuestion] = useState(null);
   const [session, setSession] = useState(null);
@@ -74,6 +66,7 @@ function InterviewPrep() {
       setHistory(Array.isArray(data.sessions) ? data.sessions : []);
     } catch (err) {
       console.error("Load interview history error:", err);
+      setError(err.message || "Unable to load interview history.");
     } finally {
       setIsLoadingHistory(false);
     }
@@ -82,6 +75,16 @@ function InterviewPrep() {
   useEffect(() => {
     loadHistory();
   }, [loadHistory]);
+
+  const reset = () => {
+    setShowQuestions(false);
+    setExpandedQuestion(null);
+    setSession(null);
+    setAnswers([]);
+    setError("");
+    setMessage("");
+    setDirty(false);
+  };
 
   const openPastSession = async (sessionId) => {
     const token = getToken();
@@ -132,6 +135,53 @@ function InterviewPrep() {
     }
   };
 
+  const deleteSession = async (sessionId) => {
+    const confirmed = window.confirm(
+      "Are you sure you want to delete this interview session? This action cannot be undone."
+    );
+
+    if (!confirmed) return;
+
+    const token = getToken();
+
+    if (!token) {
+      setError("Your session has expired. Please log in again.");
+      return;
+    }
+
+    setDeletingSessionId(sessionId);
+    setError("");
+    setMessage("");
+
+    try {
+      const response = await fetch(`${API_URL}/${sessionId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Unable to delete this session.");
+      }
+
+      setHistory((previous) =>
+        previous.filter((item) => String(item.id) !== String(sessionId))
+      );
+
+      if (String(session?.id) === String(sessionId)) {
+        reset();
+      }
+
+      setMessage("Interview session deleted successfully.");
+    } catch (err) {
+      console.error("Delete interview session error:", err);
+      setError(err.message || "Unable to delete this session.");
+    } finally {
+      setDeletingSessionId(null);
+    }
+  };
+
   const generateQuestions = async () => {
     if (!role.trim() || isGenerating) return;
 
@@ -178,6 +228,7 @@ function InterviewPrep() {
       setAnswers(Array(newSession.questions.length).fill(""));
       setShowQuestions(true);
       setDirty(false);
+
       await loadHistory();
     } catch (err) {
       console.error("Interview generation error:", err);
@@ -231,6 +282,7 @@ function InterviewPrep() {
 
       setDirty(false);
       setMessage("Your answers have been saved successfully.");
+
       await loadHistory();
     } catch (err) {
       console.error("Save interview answers error:", err);
@@ -240,80 +292,71 @@ function InterviewPrep() {
     }
   };
 
-  const reset = () => {
-    setShowQuestions(false);
-    setExpandedQuestion(null);
-    setSession(null);
-    setAnswers([]);
-    setError("");
-    setMessage("");
-    setDirty(false);
-  };
-
   const questions = Array.isArray(session?.questions)
     ? session.questions
     : [];
 
   const answeredCount = answers.filter((answer) => answer.trim()).length;
+
   const progress =
     questions.length > 0 ? (answeredCount / questions.length) * 100 : 0;
 
   return (
     <div className="mx-auto max-w-[1400px] space-y-8 pb-8 text-[#F0ECE5]">
-      {/* Ambient page lighting */}
+      {/* Ambient background */}
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
         <div className="absolute -right-40 top-28 h-96 w-96 rounded-full bg-[radial-gradient(circle,rgba(173,135,91,0.055),transparent_70%)] blur-3xl" />
         <div className="absolute -left-48 top-[45%] h-96 w-96 rounded-full bg-[radial-gradient(circle,rgba(135,145,119,0.035),transparent_70%)] blur-3xl" />
       </div>
 
-      {/* Introduction */}
-      <section className="relative overflow-hidden rounded-[28px] border border-[#403B35] bg-gradient-to-br from-[#24221F] via-[#1C1B19] to-[#191817] p-6 shadow-[0_18px_55px_rgba(0,0,0,0.22),inset_0_1px_0_rgba(255,255,255,0.045)] sm:p-9">
-        <div className="pointer-events-none absolute -right-20 -top-32 h-80 w-80 rounded-full border border-[#C5A984]/10 shadow-[0_0_80px_rgba(197,169,132,0.035)]" />
-        <div className="pointer-events-none absolute -right-8 -top-20 h-64 w-64 rounded-full border border-[#C5A984]/10" />
-        <div className="pointer-events-none absolute right-0 top-0 h-full w-1/2 bg-[radial-gradient(ellipse_at_top_right,rgba(197,169,132,0.065),transparent_65%)]" />
-
+      {/* Simplified hero */}
+      <section className="relative overflow-hidden rounded-[26px] border border-[#403B35] bg-gradient-to-br from-[#24221F] via-[#1C1B19] to-[#191817] p-6 shadow-[0_12px_35px_rgba(0,0,0,0.16)] sm:p-8">
         <div className="relative">
           <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#65513C]/70 bg-[#332A21]/70 px-3.5 py-2 text-[10px] font-semibold tracking-[0.18em] text-[#D4B994]">
             <Sparkles size={14} />
             YOUR INTERVIEW WORKSPACE
           </div>
 
-          <div className="flex flex-col justify-between gap-6 xl:flex-row xl:items-end">
-            <div className="max-w-3xl">
-              <h1 className="text-3xl font-semibold leading-tight tracking-[-0.04em] text-[#F1ECE4] sm:text-5xl">
-                Practice with purpose.
-                <br />
-                <span className="bg-gradient-to-r from-[#E7D8C1] via-[#C5A984] to-[#A99175] bg-clip-text text-transparent">
-                  Walk in prepared.
-                </span>
-              </h1>
+          <h1 className="max-w-3xl text-3xl font-semibold leading-[1.2] tracking-[-0.04em] text-[#F1ECE4] sm:text-5xl">
+            Practice with purpose.
+            <span className="mt-1 block bg-gradient-to-r from-[#E7D8C1] via-[#C5A984] to-[#A99175] bg-clip-text text-transparent">
+              Walk in prepared.
+            </span>
+          </h1>
 
-              <p className="mt-5 max-w-2xl text-sm leading-7 text-[#AAA197] sm:text-base">
-                Build confidence with role-specific questions, preparation
-                tips, and a place to develop your answers at your own pace.
-              </p>
-            </div>
+          <p className="mt-5 max-w-2xl text-sm leading-7 text-[#AAA197] sm:text-base">
+            Build confidence with role-specific questions, preparation tips,
+            and a place to develop your answers at your own pace.
+          </p>
 
-            <div className="flex w-fit items-center gap-3 rounded-2xl border border-[#403B35] bg-[#191817]/80 px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#65513C]/60 bg-[#332A21] text-[#D4B994]">
+          <div className="my-6 border-t border-[#403B35]/80" />
+
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#65513C]/60 bg-[#332A21] text-[#D4B994]">
                 <History size={18} />
               </div>
+
               <div>
-                <p className="text-xl font-semibold tabular-nums text-[#F0ECE5]">
-                  {history.length}
+                <p className="text-sm font-medium text-[#E9E2D8]">
+                  {history.length}{" "}
+                  {history.length === 1 ? "saved session" : "saved sessions"}
                 </p>
-                <p className="text-xs text-[#928A80]">Saved sessions</p>
+                <p className="mt-1 text-xs text-[#928A80]">
+                  Pick up where you left off.
+                </p>
               </div>
             </div>
-          </div>
 
-          <div className="mt-7 flex items-center gap-2 border-t border-[#403B35]/80 pt-5 text-xs text-[#8F877D]">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#A4B49A] shadow-[0_0_8px_rgba(164,180,154,0.4)]" />
-            Your preparation space, ready when you are.
+            <div className="flex items-center gap-2 text-xs text-[#8F877D]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#A4B49A]" />
+              Your preparation space, ready when you are.
+            </div>
           </div>
         </div>
       </section>
 
+      {/* Error message */}
       {error && (
         <div
           role="alert"
@@ -324,6 +367,7 @@ function InterviewPrep() {
         </div>
       )}
 
+      {/* Success message */}
       {message && (
         <div
           role="status"
@@ -336,7 +380,7 @@ function InterviewPrep() {
 
       {!showQuestions ? (
         <>
-          {/* Session setup */}
+          {/* Session setup and tips */}
           <section className="grid grid-cols-1 gap-5 xl:grid-cols-[1.15fr_0.85fr]">
             <div className="relative overflow-hidden rounded-[26px] border border-[#403B35] bg-gradient-to-br from-[#22211F] to-[#1B1A19] p-6 shadow-[0_12px_35px_rgba(0,0,0,0.16),inset_0_1px_0_rgba(255,255,255,0.035)] sm:p-8">
               <div className="pointer-events-none absolute right-0 top-0 h-48 w-48 bg-[radial-gradient(circle_at_top_right,rgba(197,169,132,0.06),transparent_70%)]" />
@@ -385,7 +429,6 @@ function InterviewPrep() {
                 <p className="mt-1 text-xs text-[#8F877D]">
                   Choose the level you want to work towards.
                 </p>
-
                 <div className="mt-3 grid grid-cols-3 gap-2">
                   {["Easy", "Medium", "Hard"].map((level) => (
                     <OptionButton
@@ -402,7 +445,6 @@ function InterviewPrep() {
                 <p className="text-sm font-medium text-[#D9D2C8]">
                   Question type
                 </p>
-
                 <div className="mt-3 grid grid-cols-3 gap-2">
                   {["Technical", "Behavioral", "HR"].map((type) => (
                     <OptionButton
@@ -439,7 +481,6 @@ function InterviewPrep() {
               </button>
             </div>
 
-            {/* Guidance and quick information */}
             <div className="flex flex-col gap-5">
               <div className="relative overflow-hidden rounded-[26px] border border-[#51473A] bg-gradient-to-br from-[#302920] via-[#27231E] to-[#211F1C] p-6 shadow-[0_14px_38px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.045)] sm:p-7">
                 <div className="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full bg-[radial-gradient(circle,rgba(197,169,132,0.10),transparent_70%)]" />
@@ -495,7 +536,7 @@ function InterviewPrep() {
             </div>
           </section>
 
-          {/* Previous sessions */}
+          {/* Practice history */}
           <section>
             <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
               <div>
@@ -544,7 +585,6 @@ function InterviewPrep() {
                         <h3 className="break-words font-semibold text-[#F0ECE5]">
                           {item.target_role}
                         </h3>
-
                         <div className="mt-3 flex flex-wrap gap-2">
                           <span className="rounded-full border border-[#645239] bg-[#332B20] px-3 py-1 text-xs font-medium text-[#D8C29D]">
                             {item.difficulty}
@@ -573,7 +613,10 @@ function InterviewPrep() {
                     <button
                       type="button"
                       onClick={() => openPastSession(item.id)}
-                      disabled={loadingSessionId !== null}
+                      disabled={
+                        loadingSessionId !== null ||
+                        deletingSessionId !== null
+                      }
                       className="mt-5 inline-flex items-center gap-2 rounded-xl border border-[#51483D] bg-[#29251F] px-4 py-2.5 text-sm font-medium text-[#D8C29D] transition hover:border-[#8C7455] hover:bg-[#332B21] disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {loadingSessionId === item.id ? (
@@ -584,10 +627,30 @@ function InterviewPrep() {
                       ) : (
                         <>
                           Continue session
-                          <ArrowRight
-                            size={15}
-                            className="transition-transform group-hover:translate-x-1"
-                          />
+                          <ArrowRight size={15} />
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => deleteSession(item.id)}
+                      disabled={
+                        deletingSessionId !== null ||
+                        loadingSessionId !== null
+                      }
+                      aria-label={`Delete interview session for ${item.target_role}`}
+                      className="mt-3 inline-flex items-center justify-center gap-2 rounded-xl border border-[#744540] bg-[#332321] px-4 py-2.5 text-sm font-medium text-[#E7B2A9] transition hover:border-[#A65E55] hover:bg-[#422A27] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {String(deletingSessionId) === String(item.id) ? (
+                        <>
+                          <LoaderCircle size={15} className="animate-spin" />
+                          Deleting...
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 size={15} />
+                          Delete session
                         </>
                       )}
                     </button>
@@ -599,7 +662,7 @@ function InterviewPrep() {
         </>
       ) : (
         <>
-          {/* Active session heading */}
+          {/* Active interview session */}
           <section>
             <button
               type="button"
@@ -620,11 +683,9 @@ function InterviewPrep() {
                     <Mic2 size={14} />
                     PRACTICE SESSION
                   </div>
-
                   <h2 className="mt-4 break-words text-2xl font-semibold tracking-tight text-[#F0ECE5] sm:text-3xl">
                     {session?.target_role || "Interview practice"}
                   </h2>
-
                   <div className="mt-3 flex flex-wrap gap-2">
                     <span className="rounded-full border border-[#645239] bg-[#332B20] px-3 py-1.5 text-xs font-semibold text-[#D8C29D]">
                       {session?.difficulty}
@@ -645,7 +706,6 @@ function InterviewPrep() {
                       / {questions.length}
                     </span>
                   </p>
-
                   <div
                     className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#403B35]"
                     role="progressbar"
@@ -664,7 +724,7 @@ function InterviewPrep() {
             </div>
           </section>
 
-          {/* Questions */}
+          {/* Questions and answers */}
           <section className="rounded-[26px] border border-[#403B35] bg-gradient-to-b from-[#22211F] to-[#1B1A19] p-5 shadow-[0_12px_35px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.035)] sm:p-7">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
@@ -676,7 +736,6 @@ function InterviewPrep() {
                   answer.
                 </p>
               </div>
-
               <span className="rounded-full border border-[#51483D] bg-[#2B2621] px-3 py-1.5 text-xs font-semibold text-[#D8BD98]">
                 {questions.length} questions
               </span>
@@ -792,9 +851,7 @@ function InfoCard({ icon, title, description }) {
       </span>
       <div>
         <h3 className="text-sm font-semibold text-[#E9E2D8]">{title}</h3>
-        <p className="mt-1 text-xs leading-5 text-[#928A80]">
-          {description}
-        </p>
+        <p className="mt-1 text-xs leading-5 text-[#928A80]">{description}</p>
       </div>
     </div>
   );
@@ -851,7 +908,6 @@ function QuestionItem({
         <div className="space-y-5 border-t border-[#403B35] bg-[#191817] p-4 sm:p-5">
           <div className="relative overflow-hidden rounded-2xl border border-[#51483D] bg-gradient-to-br from-[#302920] to-[#25211C] p-4">
             <div className="pointer-events-none absolute right-0 top-0 h-24 w-24 bg-[radial-gradient(circle_at_top_right,rgba(197,169,132,0.08),transparent_70%)]" />
-
             <div className="relative flex items-start gap-3">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#65513C]/70 bg-[#3A3025] text-[#D8BD98]">
                 <Lightbulb size={18} />

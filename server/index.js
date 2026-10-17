@@ -1,3 +1,5 @@
+
+import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -32,9 +34,9 @@ app.use(
 );
 
 app.use(express.json());
+
 app.use("/api/auth", authRoutes);
 app.use("/api/interview", interviewRoutes);
-
 app.use("/api/resume", resumeRoutes);
 app.use("/api/pdf", pdfAssistantRoutes);
 app.use("/api/roadmap", roadmapRoutes);
@@ -47,23 +49,39 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+// Database health-check route
 app.get("/api/db-test", async (req, res) => {
   try {
-    const result = await pool.query("SELECT current_database()");
+    const result = await pool.query(`
+      SELECT
+        current_database() AS database_name,
+        current_schema() AS schema_name,
+        current_user AS database_user,
+        to_regclass('public.users') AS users_table,
+        to_regclass('public.resume_analyses') AS resume_analyses_table,
+        to_regclass('public.resume_matches') AS resume_matches_table,
+        to_regclass('public.roadmap_progress') AS roadmap_progress_table,
+        to_regclass('public.interview_sessions') AS interview_sessions_table,
+        to_regclass('public.pdf_documents') AS pdf_documents_table,
+        to_regclass('public.pdf_assistant_messages') AS pdf_assistant_messages_table
+    `);
+
     res.json({
       success: true,
-      database: result.rows[0].current_database,
+      ...result.rows[0],
     });
   } catch (error) {
-    console.error("Database connection failed:", error.message);
+    console.error("Database connection failed:", error);
+
     res.status(500).json({
       success: false,
-      message: "Database connection failed",
+      message: error.message,
+      code: error.code,
     });
   }
 });
 
-
+// Dashboard API
 app.get("/api/dashboard", authMiddleware, async (req, res) => {
   try {
     const userId = req.user.userId;
@@ -91,6 +109,7 @@ app.get("/api/dashboard", authMiddleware, async (req, res) => {
       interviewActivityResult,
       pdfActivityResult,
     ] = await Promise.all([
+      // Resume statistics
       pool.query(
         `SELECT
            COUNT(*)::INTEGER AS total_analyses,
@@ -106,6 +125,7 @@ app.get("/api/dashboard", authMiddleware, async (req, res) => {
         [userId]
       ),
 
+      // Resume match statistics
       pool.query(
         `SELECT
            COUNT(*)::INTEGER AS total_matches,
@@ -121,13 +141,15 @@ app.get("/api/dashboard", authMiddleware, async (req, res) => {
         [userId]
       ),
 
+      // Current generated roadmap and task-level progress
       pool.query(
-        `SELECT completed_weeks
+        `SELECT roadmap, completed_tasks
          FROM roadmap_progress
          WHERE user_id = $1`,
         [userId]
       ),
 
+      // Recent resume analyses
       pool.query(
         `SELECT id, file_name, ats_score, created_at
          FROM resume_analyses
@@ -137,6 +159,7 @@ app.get("/api/dashboard", authMiddleware, async (req, res) => {
         [userId]
       ),
 
+      // Recent resume matches
       pool.query(
         `SELECT id, file_name, match_score, created_at
          FROM resume_matches
@@ -146,6 +169,7 @@ app.get("/api/dashboard", authMiddleware, async (req, res) => {
         [userId]
       ),
 
+      // Recent interview sessions
       pool.query(
         `SELECT id, target_role, difficulty, question_type, created_at
          FROM interview_sessions
@@ -155,17 +179,18 @@ app.get("/api/dashboard", authMiddleware, async (req, res) => {
         [userId]
       ),
 
+      // Recent PDF Assistant questions
       pool.query(
         `SELECT
-          m.id,
-          m.question,
-          m.created_at,
-          d.file_name
-        FROM pdf_assistant_messages m
-        JOIN pdf_documents d ON d.id = m.document_id
-        WHERE m.user_id = $1
-        ORDER BY m.created_at DESC, m.id DESC
-        LIMIT 5`,
+           m.id,
+           m.question,
+           m.created_at,
+           d.file_name
+         FROM pdf_assistant_messages m
+         JOIN pdf_documents d ON d.id = m.document_id
+         WHERE m.user_id = $1
+         ORDER BY m.created_at DESC, m.id DESC
+         LIMIT 5`,
         [userId]
       ),
     ]);
@@ -174,42 +199,101 @@ app.get("/api/dashboard", authMiddleware, async (req, res) => {
     const resumeStats = resumeStatsResult.rows[0];
     const matchStats = matchStatsResult.rows[0];
 
-    const completedWeeks =
-      roadmapResult.rows[0]?.completed_weeks ?? [];
+    // Calculate preparation progress using the saved roadmap tasks.
+    const roadmapData = roadmapResult.rows[0];
 
-    const totalWeeks = 8;
+    const roadmap = roadmapData?.roadmap ?? null;
 
-    const resumeActivity = resumeActivityResult.rows.map((item) => ({
-      id: `resume-${item.id}`,
-      type: "resume_analysis",
-      title: "Resume analyzed",
-      description: `${item.file_name} · ATS score: ${item.ats_score}/100`,
-      createdAt: item.created_at,
-    }));
+    const completedTasks = Array.isArray(
+      roadmapData?.completed_tasks
+    )
+      ? roadmapData.completed_tasks
+      : [];
 
-    const matchActivity = matchActivityResult.rows.map((item) => ({
-      id: `match-${item.id}`,
-      type: "resume_match",
-      title: "Resume matched",
-      description: `${item.file_name} · ${item.match_score}% match`,
-      createdAt: item.created_at,
-    }));
+    const weeks = Array.isArray(roadmap?.weeks)
+      ? roadmap.weeks
+      : [];
 
-    const interviewActivity = interviewActivityResult.rows.map((item) => ({
-      id: `interview-${item.id}`,
-      type: "interview_session",
-      title: "Interview practice session",
-      description: `${item.target_role} · ${item.difficulty} · ${item.question_type}`,
-      createdAt: item.created_at,
-    }));
+    const totalTasks = weeks.reduce(
+      (total, week) =>
+        total +
+        (Array.isArray(week.tasks) ? week.tasks.length : 0),
+      0
+    );
 
-    const pdfActivity = pdfActivityResult.rows.map((item) => ({
-      id: `pdf-${item.id}`,
-      type: "pdf_assistant",
-      title: "PDF Assistant question",
-      description: `${item.file_name} · ${item.question}`,
-      createdAt: item.created_at,
-    }));
+    // Only count completed IDs that belong to the current roadmap.
+    const validTaskIds = new Set(
+      weeks.flatMap((week) =>
+        Array.isArray(week.tasks)
+          ? week.tasks.map((task) => task.id)
+          : []
+      )
+    );
+
+    const completedTaskCount = new Set(
+      completedTasks.filter((taskId) =>
+        validTaskIds.has(taskId)
+      )
+    ).size;
+
+    const completedWeeks = weeks.filter(
+      (week) =>
+        Array.isArray(week.tasks) &&
+        week.tasks.length > 0 &&
+        week.tasks.every((task) =>
+          completedTasks.includes(task.id)
+        )
+    );
+
+    const totalWeeks = weeks.length;
+
+    const preparationProgress =
+      totalTasks > 0
+        ? Math.round(
+            (completedTaskCount / totalTasks) * 100
+          )
+        : 0;
+
+    // Format recent activity
+    const resumeActivity = resumeActivityResult.rows.map(
+      (item) => ({
+        id: `resume-${item.id}`,
+        type: "resume_analysis",
+        title: "Resume analyzed",
+        description: `${item.file_name} · ATS score: ${item.ats_score}/100`,
+        createdAt: item.created_at,
+      })
+    );
+
+    const matchActivity = matchActivityResult.rows.map(
+      (item) => ({
+        id: `match-${item.id}`,
+        type: "resume_match",
+        title: "Resume matched",
+        description: `${item.file_name} · ${item.match_score}% match`,
+        createdAt: item.created_at,
+      })
+    );
+
+    const interviewActivity = interviewActivityResult.rows.map(
+      (item) => ({
+        id: `interview-${item.id}`,
+        type: "interview_session",
+        title: "Interview practice session",
+        description: `${item.target_role} · ${item.difficulty} · ${item.question_type}`,
+        createdAt: item.created_at,
+      })
+    );
+
+    const pdfActivity = pdfActivityResult.rows.map(
+      (item) => ({
+        id: `pdf-${item.id}`,
+        type: "pdf_assistant",
+        title: "PDF Assistant question",
+        description: `${item.file_name} · ${item.question}`,
+        createdAt: item.created_at,
+      })
+    );
 
     const recentActivity = [
       ...resumeActivity,
@@ -239,9 +323,11 @@ app.get("/api/dashboard", authMiddleware, async (req, res) => {
         totalResumeAnalyses: resumeStats.total_analyses,
         latestMatch: matchStats.latest_match,
         totalMatches: matchStats.total_matches,
-        preparationProgress: Math.round(
-          (completedWeeks.length / totalWeeks) * 100
-        ),
+
+        preparationProgress,
+        completedTasks: completedTaskCount,
+        totalTasks,
+
         completedWeeks: completedWeeks.length,
         totalWeeks,
       },
@@ -249,17 +335,20 @@ app.get("/api/dashboard", authMiddleware, async (req, res) => {
       recentActivity,
     });
   } catch (error) {
-    console.error("Dashboard error:", error.message);
+    console.error("Dashboard error:", error);
 
     return res.status(500).json({
       success: false,
       message: "Unable to load dashboard data.",
+      ...(process.env.NODE_ENV !== "production" && {
+        debug: error.message,
+        code: error.code,
+      }),
     });
   }
 });
 
-
-
+// Gemini connection test
 app.get("/api/gemini-test", async (req, res) => {
   try {
     const response = await ai.interactions.create({

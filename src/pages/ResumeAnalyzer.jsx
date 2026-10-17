@@ -170,20 +170,6 @@ function ResumeAnalyzer() {
                 discover practical ways to make your resume stronger.
               </p>
             </div>
-
-            <div className="flex w-fit items-center gap-3 rounded-2xl border border-[#403B35] bg-[#191817]/80 px-4 py-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#465446] bg-[#273027] text-[#B5C4AA]">
-                <ShieldCheck size={19} />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-[#E6E0D6]">
-                  Private workspace
-                </p>
-                <p className="mt-1 text-xs text-[#928A80]">
-                  Your account, your results
-                </p>
-              </div>
-            </div>
           </div>
 
           <div className="mt-7 flex flex-wrap gap-x-6 gap-y-3 border-t border-[#403B35]/80 pt-5 text-xs text-[#928A80]">

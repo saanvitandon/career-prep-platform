@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import {
   Sparkles,
@@ -11,6 +12,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { GoogleLogin } from "@react-oauth/google";
 import { useAuth } from "../context/AuthContext";
 
 const API_URL = (
@@ -24,7 +26,6 @@ function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -43,7 +44,6 @@ function Login() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-
     if (loading) return;
 
     setLoading(true);
@@ -62,15 +62,14 @@ function Login() {
       });
 
       const contentType = response.headers.get("content-type") || "";
-      let data;
 
-      if (contentType.includes("application/json")) {
-        data = await response.json();
-      } else {
+      if (!contentType.includes("application/json")) {
         throw new Error(
           `The server returned an unexpected response (${response.status}). Please check the API URL and backend routes.`
         );
       }
+
+      const data = await response.json();
 
       if (!response.ok) {
         setError(
@@ -97,6 +96,64 @@ function Login() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleGoogleSuccess = async (credentialResponse) => {
+    if (loading) return;
+
+    if (!credentialResponse?.credential) {
+      setError("Google did not return a credential. Please try again.");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await fetch(`${API_URL}/api/auth/google`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          credential: credentialResponse.credential,
+        }),
+      });
+
+      const contentType = response.headers.get("content-type") || "";
+
+      if (!contentType.includes("application/json")) {
+        throw new Error(
+          `The server returned an unexpected response (${response.status}). Please check the backend route.`
+        );
+      }
+
+      const data = await response.json();
+
+      if (!response.ok || !data.token || !data.user) {
+        setError(
+          data.message || "Google sign-in failed. Please try again."
+        );
+        return;
+      }
+
+      login(data.token, data.user);
+      navigate("/dashboard", { replace: true });
+    } catch (err) {
+      console.error("Google sign-in error:", err);
+
+      setError(
+        err.message?.includes("unexpected response")
+          ? err.message
+          : "Unable to connect to the server. Please try again."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleError = () => {
+    setError("Google sign-in was unsuccessful. Please try again.");
   };
 
   return (
@@ -191,6 +248,7 @@ function Login() {
                     size={17}
                     className="absolute left-4 top-1/2 -translate-y-1/2 text-[#81796F]"
                   />
+
                   <input
                     id="email"
                     type="email"
@@ -211,6 +269,7 @@ function Login() {
                     size={17}
                     className="absolute left-4 top-1/2 -translate-y-1/2 text-[#81796F]"
                   />
+
                   <input
                     id="password"
                     type={showPassword ? "text" : "password"}
@@ -222,10 +281,15 @@ function Login() {
                     required
                     className="w-full rounded-xl border border-[#403B35] bg-[#191817] py-3.5 pl-11 pr-12 text-sm text-[#F0ECE5] outline-none transition placeholder:text-[#746D63] focus:border-[#9B7B53] focus:ring-4 focus:ring-[#C5A984]/10"
                   />
+
                   <button
                     type="button"
-                    onClick={() => setShowPassword((previous) => !previous)}
-                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    onClick={() =>
+                      setShowPassword((previous) => !previous)
+                    }
+                    aria-label={
+                      showPassword ? "Hide password" : "Show password"
+                    }
                     className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-[#81796F] transition hover:bg-[#292621] hover:text-[#D8BD98]"
                   >
                     {showPassword ? (
@@ -258,15 +322,32 @@ function Login() {
 
             <div className="my-7 flex items-center gap-4">
               <div className="h-px flex-1 bg-[#35312B]" />
-              <span className="text-xs text-[#746D63]">SECURE ACCESS</span>
+              <span className="text-xs text-[#746D63]">
+                OR CONTINUE WITH
+              </span>
               <div className="h-px flex-1 bg-[#35312B]" />
             </div>
 
-            <div className="flex items-start gap-3 rounded-xl border border-[#35312B] bg-[#191817] p-4">
+            <div className="flex justify-center">
+              <div className="google-login-wrapper w-full">
+                <GoogleLogin
+                  onSuccess={handleGoogleSuccess}
+                  onError={handleGoogleError}
+                  theme="filled_black"
+                  shape="rectangular"
+                  size="large"
+                  width="100%"
+                  text="continue_with"
+                />
+              </div>
+            </div>
+
+            <div className="mt-7 flex items-start gap-3 rounded-xl border border-[#35312B] bg-[#191817] p-4">
               <ShieldCheck
                 size={18}
                 className="mt-0.5 shrink-0 text-[#A4B49A]"
               />
+
               <div>
                 <p className="text-sm font-medium text-[#E9E2D8]">
                   Your workspace awaits
@@ -305,9 +386,10 @@ function Branding() {
       <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#65513C]/70 bg-gradient-to-br from-[#D8C1A0] to-[#A88A65] text-[#241E17]">
         <Sparkles size={21} />
       </div>
+
       <div>
         <h1 className="text-base font-bold tracking-tight text-[#F0ECE5]">
-          Placement Copilot
+          Ascend
         </h1>
         <p className="mt-0.5 text-xs text-[#928A80]">
           Your next chapter starts here
@@ -323,6 +405,7 @@ function Feature({ text }) {
       <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[#465B45] bg-[#293328] text-[#B5C4AA]">
         <Check size={13} />
       </div>
+
       <span className="text-sm text-[#C9C1B6]">{text}</span>
     </div>
   );
@@ -337,6 +420,7 @@ function FormField({ label, htmlFor, children }) {
       >
         {label}
       </label>
+
       {children}
     </div>
   );
