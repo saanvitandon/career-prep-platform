@@ -1,4 +1,3 @@
-
 import {
   createContext,
   useContext,
@@ -8,18 +7,24 @@ import {
 
 const AuthContext = createContext(null);
 
-const API_URL = "http://localhost:5000";
+const API_URL = (
+  import.meta.env.VITE_API_URL || "http://localhost:5000"
+).replace(/\/+$/, "");
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
+
     const verifySession = async () => {
       const token = localStorage.getItem("token");
 
       if (!token) {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
         return;
       }
 
@@ -31,23 +36,49 @@ export function AuthProvider({ children }) {
         });
 
         if (!response.ok) {
-          localStorage.removeItem("token");
-          localStorage.removeItem("user");
-          setUser(null);
+          if (response.status === 401 || response.status === 403) {
+            localStorage.removeItem("token");
+            localStorage.removeItem("user");
+
+            if (!cancelled) {
+              setUser(null);
+            }
+          } else {
+            console.error(
+              "Session verification failed with status:",
+              response.status
+            );
+          }
+
           return;
         }
 
         const data = await response.json();
-        setUser(data.user);
-        localStorage.setItem("user", JSON.stringify(data.user));
+
+        if (!data.user) {
+          throw new Error("The server did not return user information.");
+        }
+
+        if (!cancelled) {
+          setUser(data.user);
+          localStorage.setItem("user", JSON.stringify(data.user));
+        }
       } catch (error) {
+        // A temporary network failure should not immediately erase
+        // a potentially valid session.
         console.error("Session verification failed:", error);
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
 
     verifySession();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const logout = () => {

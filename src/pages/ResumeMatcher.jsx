@@ -493,7 +493,7 @@ function ResumeMatcher() {
               </div>
 
               <p className="relative mt-4 text-xs leading-5 text-[#A99A84]">
-                A rule-based estimate of detected skill and keyword overlap,
+                A estimate of detected skill and keyword overlap,
                 not an employer's ATS score.
               </p>
             </div>

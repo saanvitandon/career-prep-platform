@@ -464,11 +464,6 @@ function ResumeAnalyzer() {
                   style={{ width: `${score}%` }}
                 />
               </div>
-
-              <p className="relative mt-4 text-xs leading-5 text-[#A99A84]">
-                This is a rule-based estimate, not a score from an actual
-                applicant tracking system.
-              </p>
             </div>
 
             <div className="rounded-[26px] border border-[#403B35] bg-gradient-to-b from-[#23211E] to-[#1B1A19] p-6 shadow-[0_14px_38px_rgba(0,0,0,0.12),inset_0_1px_0_rgba(255,255,255,0.035)] sm:p-7">

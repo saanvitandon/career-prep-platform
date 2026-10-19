@@ -8,16 +8,25 @@ import { authMiddleware } from "../middleware/authMiddleware.js";
 
 dotenv.config();
 
+if (!process.env.GEMINI_API_KEY) {
+  console.error("GEMINI_API_KEY is not configured.");
+}
+
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
-  httpOptions: { timeout: 60000 },
+  httpOptions: {
+    timeout: 60000,
+  },
 });
 
 const router = express.Router();
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024, files: 1 },
+  limits: {
+    fileSize: 10 * 1024 * 1024,
+    files: 1,
+  },
   fileFilter: (req, file, callback) => {
     const isPdf =
       file.mimetype === "application/pdf" &&
@@ -31,40 +40,117 @@ const upload = multer({
   },
 });
 
+const GEMINI_MODEL = "gemini-3.8-flash";
+
+function clampScore(value) {
+  const number = Number(value);
+
+  if (!Number.isFinite(number)) {
+    return 0;
+  }
+
+  return Math.max(0, Math.min(100, Math.round(number)));
+}
+
+function cleanStringArray(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter((item) => typeof item === "string")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function parseGeminiJson(responseText) {
+  if (!responseText || typeof responseText !== "string") {
+    throw new Error("Gemini returned an empty response.");
+  }
+
+  let text = responseText.trim();
+
+  // Handle JSON surrounded by Markdown code fences, if present.
+  text = text
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/, "")
+    .trim();
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error("Gemini returned an invalid JSON response.");
+  }
+}
+
+async function generateJson(prompt) {
+  if (!process.env.GEMINI_API_KEY) {
+    throw new Error("The Gemini API key is not configured.");
+  }
+
+  const response = await ai.models.generateContent({
+    model: GEMINI_MODEL,
+    contents: prompt,
+    config: {
+      responseMimeType: "application/json",
+      temperature: 0.2,
+    },
+  });
+
+  return parseGeminiJson(response.text);
+}
+
+async function extractPdfText(file) {
+  if (!file) {
+    const error = new Error("Please select a PDF file.");
+    error.status = 400;
+    throw error;
+  }
+
+  if (file.buffer.subarray(0, 5).toString() !== "%PDF-") {
+    const error = new Error("The uploaded file is not a valid PDF.");
+    error.status = 400;
+    throw error;
+  }
+
+  const parser = new PDFParse({
+    data: file.buffer,
+  });
+
+  try {
+    const result = await parser.getText();
+    const text = result.text?.trim() || "";
+
+    if (!text) {
+      const error = new Error(
+        "No readable text was found. This PDF may be scanned or image-based."
+      );
+      error.status = 422;
+      throw error;
+    }
+
+    return text;
+  } finally {
+    await parser.destroy().catch(() => {});
+  }
+}
+
+function getErrorStatus(error) {
+  return Number.isInteger(error.status) ? error.status : 500;
+}
+
+// ---------------------------------------------------------
 // Extract text from an uploaded PDF.
+// POST /api/resume/extract
+// ---------------------------------------------------------
+
 router.post(
   "/extract",
   authMiddleware,
   upload.single("resume"),
   async (req, res) => {
-    let parser;
-
     try {
-      if (!req.file) {
-        return res.status(400).json({
-          success: false,
-          message: "Please select a PDF resume.",
-        });
-      }
-
-      if (req.file.buffer.subarray(0, 5).toString() !== "%PDF-") {
-        return res.status(400).json({
-          success: false,
-          message: "The uploaded file is not a valid PDF.",
-        });
-      }
-
-      parser = new PDFParse({ data: req.file.buffer });
-      const result = await parser.getText();
-      const extractedText = result.text?.trim() || "";
-
-      if (!extractedText) {
-        return res.status(422).json({
-          success: false,
-          message:
-            "No readable text was found. This PDF may be scanned or image-based.",
-        });
-      }
+      const extractedText = await extractPdfText(req.file);
 
       return res.json({
         success: true,
@@ -73,218 +159,94 @@ router.post(
         text: extractedText,
       });
     } catch (error) {
-      console.error("Resume extraction error:", error.message);
+      console.error("Resume extraction error:", error);
 
-      return res.status(422).json({
+      return res.status(getErrorStatus(error)).json({
         success: false,
-        message: "Unable to read this PDF. Please try another file.",
+        message:
+          error.message || "Unable to read this PDF. Please try another file.",
       });
-    } finally {
-      if (parser) {
-        await parser.destroy().catch(() => {});
-      }
     }
   }
 );
 
-// Analyze a resume and save the result in PostgreSQL.
+// ---------------------------------------------------------
+// AI-powered resume analysis.
+// POST /api/resume/analyze
+// ---------------------------------------------------------
+
 router.post(
   "/analyze",
   authMiddleware,
   upload.single("resume"),
   async (req, res) => {
-    let parser;
-
-    // DEBUG LOG: check whether the frontend reaches this route.
-    console.log("ANALYZE ROUTE HIT");
-
     try {
-      if (!req.file) {
-        return res.status(400).json({
-          success: false,
-          message: "Please select a PDF resume.",
-        });
-      }
+      const resumeText = await extractPdfText(req.file);
 
-      if (req.file.buffer.subarray(0, 5).toString() !== "%PDF-") {
-        return res.status(400).json({
-          success: false,
-          message: "The uploaded file is not a valid PDF.",
-        });
-      }
+      const prompt = `
+You are an experienced resume reviewer helping a job seeker improve
+their resume.
 
-      parser = new PDFParse({ data: req.file.buffer });
-      const result = await parser.getText();
-      const resumeText = result.text?.trim() || "";
+Analyze the resume text provided below.
 
-      console.log("Resume extracted. Characters:", resumeText.length);
+Evaluate:
+1. ATS readability and organization.
+2. Presence and clarity of common resume sections.
+3. Relevance and clarity of skills.
+4. Strength of project and work-experience descriptions.
+5. Use of action verbs and measurable achievements.
+6. Contact information and professional presentation.
+7. Specific, realistic improvements the candidate could make.
 
-      if (!resumeText) {
-        return res.status(422).json({
-          success: false,
-          message:
-            "No readable text found in this PDF. It may be scanned or image-based.",
-        });
-      }
+Rules:
+- Do not invent qualifications, experience, or achievements.
+- Do not assume missing information is present.
+- Be constructive and specific.
+- Base the feedback only on the supplied resume.
+- Return a score from 0 to 100 representing your estimated
+  resume-readiness, not a guaranteed ATS result.
+- Treat this as an approximate AI assessment, not a score from
+  a particular applicant tracking system.
+- Return valid JSON only.
 
-      const text = resumeText.toLowerCase();
-      const strengths = [];
-      const improvements = [];
-      let score = 40;
+Required JSON structure:
+{
+  "atsScore": 0,
+  "summary": "A concise summary of the assessment",
+  "strengths": [
+    "Specific strength supported by the resume"
+  ],
+  "improvements": [
+    "Specific, actionable improvement"
+  ]
+}
 
-      // Check for common resume sections.
-      const sections = [
-        { name: "education", pattern: /\beducation\b/ },
-        {
-          name: "experience",
-          pattern: /\b(experience|internship|employment)\b/,
-        },
-        { name: "skills", pattern: /\bskills\b/ },
-        { name: "projects", pattern: /\bprojects\b/ },
-      ];
+Resume text:
+${resumeText}
+`;
 
-      const foundSections = sections.filter((section) =>
-        section.pattern.test(text)
-      );
+      const result = await generateJson(prompt);
 
-      score += foundSections.length * 8;
-
-      if (foundSections.some((s) => s.name === "education")) {
-        strengths.push("An education section is present.");
-      } else {
-        improvements.push("Add a clearly labelled Education section.");
-      }
-
-      if (foundSections.some((s) => s.name === "experience")) {
-        strengths.push(
-          "The resume includes an experience-related section."
-        );
-      } else {
-        improvements.push(
-          "Add relevant internships, work experience, or practical experience where applicable."
-        );
-      }
-
-      if (foundSections.some((s) => s.name === "skills")) {
-        strengths.push("A dedicated skills section is present.");
-      } else {
-        improvements.push(
-          "Add a Skills section listing relevant technical and professional skills."
-        );
-      }
-
-      if (foundSections.some((s) => s.name === "projects")) {
-        strengths.push("The resume includes a projects section.");
-      } else {
-        improvements.push(
-          "Consider adding relevant projects with your contributions and technologies used."
-        );
-      }
-
-      // Check contact information.
-      const hasEmail =
-        /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/.test(
-          resumeText
-        );
-
-      const hasPhone = /(?:\+?\d[\d\s().-]{8,}\d)/.test(
-        resumeText
-      );
-
-      if (hasEmail) {
-        score += 5;
-        strengths.push("An email address appears to be included.");
-      } else {
-        improvements.push(
-          "Include a professional email address in your contact information."
-        );
-      }
-
-      if (hasPhone) {
-        score += 3;
-      }
-
-      // Check measurable results and action-oriented language.
-      const hasNumbers = /\b\d+(?:\.\d+)?%?\b/.test(resumeText);
-
-      const actionVerbs =
-        /\b(built|developed|designed|implemented|created|improved|optimized|automated|led|managed|analyzed|deployed|delivered|reduced|increased)\b/i;
-
-      if (hasNumbers) {
-        score += 5;
-        strengths.push(
-          "The resume contains numerical details. Ensure they demonstrate meaningful outcomes."
-        );
-      } else {
-        improvements.push(
-          "Where accurate, quantify project outcomes and achievements with numbers or measurable results."
-        );
-      }
-
-      if (actionVerbs.test(resumeText)) {
-        score += 5;
-        strengths.push(
-          "Action-oriented language appears in the resume."
-        );
-      } else {
-        improvements.push(
-          "Start bullet points with clear action verbs describing your contributions."
-        );
-      }
-
-      // Detect skills using the existing skill dictionary.
-      const detectedSkills = findSkills(resumeText);
-
-      if (detectedSkills.length >= 5) {
-        score += 8;
-        strengths.push(
-          `Several relevant skills were detected, including ${detectedSkills
-            .slice(0, 5)
-            .join(", ")}.`
-        );
-      } else if (detectedSkills.length > 0) {
-        score += 4;
-        improvements.push(
-          "Consider highlighting additional relevant skills that you genuinely possess."
-        );
-      } else {
-        improvements.push(
-          "Make relevant technical and professional skills easier to identify."
-        );
-      }
-
-      // Check readable content length.
-      if (resumeText.length >= 1500) {
-        score += 5;
-        strengths.push(
-          "The resume contains substantial readable content."
-        );
-      } else if (resumeText.length < 700) {
-        improvements.push(
-          "The resume contains limited text. Check whether important experience, projects, and achievements are missing."
-        );
-      }
-
-      score = Math.max(0, Math.min(100, score));
+      const score = clampScore(result.atsScore);
+      const strengths = cleanStringArray(result.strengths);
+      const improvements = cleanStringArray(result.improvements);
 
       const summary =
-        `Your estimated resume-readiness score is ${score}/100. ` +
-        `This rule-based review detected ${foundSections.length} of 4 common resume sections. ` +
-        "Use the feedback below to identify areas worth reviewing.";
+        typeof result.summary === "string" && result.summary.trim()
+          ? result.summary.trim()
+          : "The resume was reviewed using AI. Review the feedback below.";
 
       if (strengths.length === 0) {
         strengths.push(
-          "The resume was successfully read and is ready for a more detailed review."
+          "The resume was successfully processed. Review the assessment for opportunities to improve it."
         );
       }
 
       if (improvements.length === 0) {
         improvements.push(
-          "Review the resume against each job description and tailor relevant experience without adding inaccurate claims."
+          "Compare your resume with the requirements of your target role and make any relevant improvements supported by your actual experience."
         );
       }
-
-      console.log("Saving resume analysis to PostgreSQL...");
 
       const saved = await pool.query(
         `INSERT INTO resume_analyses
@@ -303,8 +265,6 @@ router.post(
 
       const row = saved.rows[0];
 
-      console.log("Resume analysis saved. ID:", row.id);
-
       return res.json({
         success: true,
         analysis: {
@@ -315,110 +275,40 @@ router.post(
           strengths: row.strengths,
           improvements: row.improvements,
           createdAt: row.created_at,
-          method: "rule-based",
+          method: "gemini",
         },
       });
     } catch (error) {
-      console.error("Resume analysis error:", error);
+      console.error("AI resume analysis error:", error);
 
-      return res.status(500).json({
+      const status = getErrorStatus(error);
+
+      return res.status(status).json({
         success: false,
-        message: "Unable to analyze this resume. Please try again.",
+        message:
+          status < 500
+            ? error.message
+            : "Unable to analyze this resume. Please try again.",
       });
-    } finally {
-      if (parser) {
-        await parser.destroy().catch(() => {});
-      }
     }
   }
 );
 
-// Normalize text for skill and keyword matching.
-function normalizeText(text) {
-  return text.toLowerCase().replace(/[^a-z0-9+#.]/g, " ");
-}
+// ---------------------------------------------------------
+// AI-powered resume/job-description matching.
+// POST /api/resume/match
+// ---------------------------------------------------------
 
-// Find skills from the predefined dictionary.
-function findSkills(text) {
-  const skills = [
-    "javascript",
-    "typescript",
-    "python",
-    "java",
-    "c++",
-    "c#",
-    "sql",
-    "postgresql",
-    "mysql",
-    "mongodb",
-    "react",
-    "node.js",
-    "express.js",
-    "html",
-    "css",
-    "rest api",
-    "git",
-    "github",
-    "docker",
-    "kubernetes",
-    "aws",
-    "azure",
-    "google cloud",
-    "machine learning",
-    "data analysis",
-    "power bi",
-    "tableau",
-    "excel",
-    "pandas",
-    "numpy",
-    "tensorflow",
-    "pytorch",
-    "linux",
-    "operating systems",
-    "data structures",
-    "algorithms",
-    "object oriented programming",
-    "agile",
-    "communication",
-    "leadership",
-    "problem solving",
-  ];
-
-  const normalizedText = normalizeText(text);
-
-  return skills.filter((skill) => {
-    const normalizedSkill = normalizeText(skill);
-    const escapedSkill = normalizedSkill.replace(
-      /[.*+?^${}()|[\]\\]/g,
-      "\\$&"
-    );
-
-    return new RegExp(`(^| )${escapedSkill}( |$)`).test(
-      normalizedText
-    );
-  });
-}
-
-// Rule-based resume matching.
 router.post(
   "/match",
   authMiddleware,
   upload.single("resume"),
   async (req, res) => {
-    let parser;
-
     try {
       if (!req.file) {
         return res.status(400).json({
           success: false,
           message: "Please select a PDF resume.",
-        });
-      }
-
-      if (req.file.buffer.subarray(0, 5).toString() !== "%PDF-") {
-        return res.status(400).json({
-          success: false,
-          message: "The uploaded file is not a valid PDF.",
         });
       }
 
@@ -439,106 +329,84 @@ router.post(
         });
       }
 
-      parser = new PDFParse({ data: req.file.buffer });
-      const pdfResult = await parser.getText();
-      const resumeText = pdfResult.text?.trim() || "";
+      const resumeText = await extractPdfText(req.file);
 
-      if (!resumeText) {
-        return res.status(422).json({
-          success: false,
-          message:
-            "No readable text was found. This PDF may be scanned or image-based.",
-        });
-      }
+      const prompt = `
+You are an experienced recruiter and resume-to-job-description
+matching assistant.
 
-      const resumeSkills = findSkills(resumeText);
-      const jobSkills = findSkills(jobDescription);
+Compare the candidate's resume with the job description.
 
-      const matchedSkills = jobSkills.filter((skill) =>
-        resumeSkills.includes(skill)
-      );
+Assess:
+1. Overall fit for the role.
+2. Relevant skills explicitly demonstrated in the resume.
+3. Required or preferred skills that appear to be missing.
+4. Relevant experience and project evidence.
+5. Qualifications and responsibilities that align.
+6. Practical recommendations to improve the resume for this role.
 
-      const missingSkills = jobSkills.filter(
-        (skill) => !resumeSkills.includes(skill)
-      );
+Important rules:
+- Evaluate meaning and context, not just exact keyword matches.
+- Recognize equivalent terminology when the evidence supports it.
+- Do not claim the candidate has a skill merely because the job
+  description requests it.
+- Do not invent experience, qualifications, or achievements.
+- Distinguish an explicitly missing skill from one that is simply
+  not demonstrated in the resume.
+- Be fair to candidates whose experience is described using
+  different wording.
+- Scores are estimates based on the supplied text, not predictions
+  of hiring outcomes.
+- Return valid JSON only.
 
-      const skillsMatchScore =
-        jobSkills.length > 0
-          ? Math.round(
-              (matchedSkills.length / jobSkills.length) * 100
-            )
-          : 0;
+Return this JSON structure:
+{
+  "matchScore": 0,
+  "skillsMatchScore": 0,
+  "keywordMatchScore": 0,
+  "matchedSkills": [
+    "Relevant skill supported by the resume"
+  ],
+  "missingSkills": [
+    "Relevant job requirement not demonstrated in the resume"
+  ],
+  "recommendations": [
+    "Specific, actionable recommendation"
+  ]
+}
 
-      // Compare keywords in the job description and resume.
-      const stopWords = new Set([
-        "about", "after", "again", "also", "and", "are", "because",
-        "been", "being", "both", "can", "candidate", "could", "each",
-        "for", "from", "have", "into", "must", "need", "our",
-        "should", "such", "than", "that", "their", "them", "then",
-        "there", "these", "they", "this", "those", "through", "using",
-        "very", "want", "well", "were", "what", "when", "where",
-        "which", "will", "with", "work", "working", "would", "you",
-        "your", "role", "team", "experience", "skills", "ability",
-        "responsibilities", "requirements", "preferred", "including",
-      ]);
+Scoring guidance:
+- matchScore: overall alignment between the resume and role.
+- skillsMatchScore: alignment of demonstrated skills with the
+  skills and competencies required for the role.
+- keywordMatchScore: how well relevant terminology and concepts
+  from the job description are represented in the resume.
+- All three scores must be integers between 0 and 100.
+- matchedSkills and missingSkills should contain concise skill
+  names or competencies, not long paragraphs.
+- Do not penalize a resume solely because it uses a reasonable
+  synonym instead of the exact wording in the job description.
 
-      const getKeywords = (input) => {
-        const words = normalizeText(input)
-          .split(/\s+/)
-          .filter(
-            (word) =>
-              word.length >= 3 &&
-              !stopWords.has(word) &&
-              !/^\d+$/.test(word)
-          );
+RESUME:
+${resumeText}
 
-        return [...new Set(words)];
-      };
+JOB DESCRIPTION:
+${jobDescription}
+`;
 
-      const resumeKeywords = new Set(getKeywords(resumeText));
-      const jobKeywords = getKeywords(jobDescription);
+      const result = await generateJson(prompt);
 
-      const matchedKeywords = jobKeywords.filter((word) =>
-        resumeKeywords.has(word)
-      );
+      const matchScore = clampScore(result.matchScore);
+      const skillsMatchScore = clampScore(result.skillsMatchScore);
+      const keywordMatchScore = clampScore(result.keywordMatchScore);
 
-      const keywordMatchScore =
-        jobKeywords.length > 0
-          ? Math.round(
-              (matchedKeywords.length / jobKeywords.length) * 100
-            )
-          : 0;
-
-      // Weight skills more heavily than general keywords.
-      const matchScore = Math.round(
-        skillsMatchScore * 0.7 + keywordMatchScore * 0.3
-      );
-
-      const recommendations = [];
-
-      if (missingSkills.length > 0) {
-        recommendations.push(
-          `Build or demonstrate relevant skills in: ${missingSkills.join(", ")}.`
-        );
-      }
-
-      if (keywordMatchScore < 60) {
-        recommendations.push(
-          "Review the job description and include relevant experience and terminology where they accurately reflect your background."
-        );
-      }
-
-      if (matchedSkills.length > 0) {
-        recommendations.push(
-          `Highlight your relevant experience with ${matchedSkills
-            .slice(0, 5)
-            .join(", ")} in your resume.`
-        );
-      }
+      const matchedSkills = cleanStringArray(result.matchedSkills);
+      const missingSkills = cleanStringArray(result.missingSkills);
+      const recommendations = cleanStringArray(result.recommendations);
 
       if (recommendations.length === 0) {
         recommendations.push(
-          "Your resume contains the skills and keywords detected in this job description. Review the role's responsibilities and tailor your relevant experience."
+          "Review the job requirements and highlight relevant experience and skills that you can accurately demonstrate."
         );
       }
 
@@ -588,16 +456,17 @@ router.post(
         },
       });
     } catch (error) {
-      console.error("Resume matching error:", error);
+      console.error("AI resume matching error:", error);
 
-      return res.status(500).json({
+      const status = getErrorStatus(error);
+
+      return res.status(status).json({
         success: false,
-        message: "Unable to match this resume. Please try again.",
+        message:
+          status < 500
+            ? error.message
+            : "Unable to match this resume. Please try again.",
       });
-    } finally {
-      if (parser) {
-        await parser.destroy().catch(() => {});
-      }
     }
   }
 );
