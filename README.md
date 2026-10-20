@@ -20,7 +20,7 @@ Ascend is an AI-powered career preparation platform that helps students prepare 
 - **Frontend:** React.js, JavaScript, Tailwind CSS, Vite, React Router
 - **Backend:** Node.js, Express.js, REST APIs
 - **Database:** PostgreSQL, Supabase
-- **AI Integration:** Google Gemini API
+- **AI Integration:** OpenRouter API
 - **Authentication:** JSON Web Tokens (JWT)
 - **PDF Processing:** `pdf-parse`, Multer
 - **Deployment:** Vercel (frontend), Render (backend), Supabase (database)
