@@ -6,7 +6,7 @@ Ascend is an AI-powered career preparation platform that helps students prepare 
 
 ## Features
 
-- **AI Resume Analyzer** — Generates an AI-powered ATS-style score, resume strengths, and improvement suggestions using Google Gemini.
+- **AI Resume Analyzer** — Generates an AI-powered ATS-style score, resume strengths, and improvement suggestions using OpenRouter.
 - **Resume–Job Description Matcher** — Evaluates how well a resume aligns with a job description, identifying matching skills, missing skills, and areas for improvement.
 - **Interview Preparation** — Generates AI-powered interview questions to help students practice for technical and behavioral interviews.
 - **Personalized Learning Roadmap** — Helps students structure their career preparation with personalized learning plans.
@@ -31,7 +31,7 @@ Ascend is an AI-powered career preparation platform that helps students prepare 
 - **Large Language Models (LLMs)** — Generate resume feedback, job compatibility assessments, interview questions, and document-based answers.
 - **Natural Language Processing (NLP)** — Supports the analysis and interpretation of resume content and job descriptions.
 - **Retrieval-Augmented Generation (RAG)** — Combines retrieved document text with an AI language model to generate context-based answers.
-- **Prompt Engineering** — Uses structured prompts to guide Gemini's outputs for specific career preparation tasks.
+- **Prompt Engineering** — Uses structured prompts to guide OpenRouter's outputs for specific career preparation tasks.
 - **AI-Based Resume Evaluation** — Produces ATS-style resume scores and actionable feedback.
 - **Resume–Job Matching** — Evaluates resume alignment with job requirements, including skills and keyword matching.
 
@@ -45,6 +45,6 @@ Ascend is an AI-powered career preparation platform that helps students prepare 
 ## Security
 
 - Sensitive credentials and API keys are managed through environment variables.
-- Gemini API calls are handled by the backend.
+- OpenRouter API calls are handled by the backend.
 - Protected API endpoints use JWT-based authentication.
 - Environment files containing secrets should never be committed to version control.
