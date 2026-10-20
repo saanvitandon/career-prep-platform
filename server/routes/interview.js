@@ -1,34 +1,36 @@
-
 import express from "express";
-import { GoogleGenAI } from "@google/genai";
+import OpenAI from "openai";
+
 import { pool } from "../db.js";
 import { authMiddleware } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-  httpOptions: {
-    timeout: 60000,
+const ai = new OpenAI({
+  baseURL: "https://openrouter.ai/api/v1",
+  apiKey: process.env.OPENROUTER_API_KEY,
+  timeout: 120000,
+  defaultHeaders: {
+    "X-OpenRouter-Title": "Ascend AI Prep",
   },
 });
 
-const MODEL = "gemini-3.8-flash";
+const MODEL =
+  process.env.OPENROUTER_MODEL || "openai/gpt-4o-mini";
 
 const VALID_DIFFICULTIES = ["Easy", "Medium", "Hard"];
 const VALID_QUESTION_TYPES = ["Technical", "Behavioral", "HR"];
 
-// Retry temporary Gemini API failures.
 const sleep = (ms) =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
-async function generateWithRetry(generateRequest, maxRetries = 3) {
+async function generateWithRetry(generateRequest, maxRetries = 2) {
   for (let attempt = 0; ; attempt++) {
     try {
       return await generateRequest();
     } catch (error) {
       const status = Number(error.status ?? error.code);
-      const isTemporary = [429, 500, 503, 504].includes(status);
+      const isTemporary = [408, 429, 500, 502, 503, 504].includes(status);
 
       if (!isTemporary || attempt >= maxRetries) {
         throw error;
@@ -37,7 +39,7 @@ async function generateWithRetry(generateRequest, maxRetries = 3) {
       const delay = 1000 * 2 ** attempt;
 
       console.warn(
-        `Gemini returned ${status}. Retrying in ${
+        `OpenRouter returned ${status}. Retrying in ${
           delay / 1000
         }s (attempt ${attempt + 1}/${maxRetries})...`
       );
@@ -78,10 +80,10 @@ router.post("/generate", authMiddleware, async (req, res) => {
       });
     }
 
-    if (!process.env.GEMINI_API_KEY) {
+    if (!process.env.OPENROUTER_API_KEY) {
       return res.status(500).json({
         success: false,
-        message: "GEMINI_API_KEY is not configured on the server.",
+        message: "OPENROUTER_API_KEY is not configured on the server.",
       });
     }
 
@@ -115,29 +117,42 @@ Requirements:
 `;
 
     const response = await generateWithRetry(() =>
-      ai.models.generateContent({
+      ai.chat.completions.create({
         model: MODEL,
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-          temperature: 0.9,
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are an experienced interviewer. Generate role-specific interview questions and return valid JSON only, following the requested schema.",
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        response_format: {
+          type: "json_object",
         },
+        temperature: 0.9,
       })
     );
 
+    const responseText = response.choices?.[0]?.message?.content;
     let generated;
 
     try {
       if (
-        typeof response.text !== "string" ||
-        !response.text.trim()
+        typeof responseText !== "string" ||
+        !responseText.trim()
       ) {
         throw new Error("Empty response");
       }
 
-      generated = JSON.parse(response.text);
+      generated = JSON.parse(responseText);
     } catch {
-      console.error("Gemini returned invalid interview-question JSON.");
+      console.error(
+        "OpenRouter returned invalid interview-question JSON."
+      );
 
       return res.status(502).json({
         success: false,
@@ -159,7 +174,8 @@ Requirements:
     ) {
       return res.status(502).json({
         success: false,
-        message: "The AI returned an incomplete question set. Please try again.",
+        message:
+          "The AI returned an incomplete question set. Please try again.",
       });
     }
 
@@ -192,17 +208,18 @@ Requirements:
 
     const status = Number(error.status ?? error.code);
 
-    if ([429, 500, 503, 504].includes(status)) {
+    if ([408, 429, 500, 502, 503, 504].includes(status)) {
       return res.status(503).json({
         success: false,
         message:
-          "Gemini is temporarily busy. Please wait a moment and try again.",
+          "The AI service is temporarily busy. Please wait a moment and try again.",
       });
     }
 
     return res.status(500).json({
       success: false,
-      message: "Unable to generate interview questions. Please try again.",
+      message:
+        "Unable to generate interview questions. Please try again.",
     });
   }
 });

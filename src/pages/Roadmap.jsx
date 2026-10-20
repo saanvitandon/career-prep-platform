@@ -541,7 +541,7 @@ function Roadmap() {
             Building your personalized roadmap
           </h2>
           <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-[#928A80]">
-            Gemini is tailoring your weekly goals, practical tasks, and
+            We are tailoring your weekly goals, practical tasks, and
             resources to your career target. This can take a little while.
           </p>
         </section>

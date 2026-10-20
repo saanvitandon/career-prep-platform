@@ -2,23 +2,28 @@ import express from "express";
 import multer from "multer";
 import { PDFParse } from "pdf-parse";
 import dotenv from "dotenv";
-import { GoogleGenAI } from "@google/genai";
+import OpenAI from "openai";
+
 import { pool } from "../db.js";
 import { authMiddleware } from "../middleware/authMiddleware.js";
 
 dotenv.config();
 
-if (!process.env.GEMINI_API_KEY) {
-  console.error("GEMINI_API_KEY is not configured.");
+if (!process.env.OPENROUTER_API_KEY) {
+  console.error("OPENROUTER_API_KEY is not configured.");
 }
 
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-  httpOptions: {
-    timeout: 120000,
-    headers: {},
+const ai = new OpenAI({
+  baseURL: "https://openrouter.ai/api/v1",
+  apiKey: process.env.OPENROUTER_API_KEY,
+  timeout: 120000,
+  defaultHeaders: {
+    "X-OpenRouter-Title": "Ascend AI Prep",
   },
 });
+
+const OPENROUTER_MODEL =
+  process.env.OPENROUTER_MODEL || "openai/gpt-4o-mini";
 
 const router = express.Router();
 
@@ -41,8 +46,6 @@ const upload = multer({
   },
 });
 
-const GEMINI_MODEL = "gemini-3.8-flash";
-
 function clampScore(value) {
   const number = Number(value);
 
@@ -64,14 +67,13 @@ function cleanStringArray(value) {
     .filter(Boolean);
 }
 
-function parseGeminiJson(responseText) {
+function parseAIJson(responseText) {
   if (!responseText || typeof responseText !== "string") {
-    throw new Error("Gemini returned an empty response.");
+    throw new Error("OpenRouter returned an empty response.");
   }
 
   let text = responseText.trim();
 
-  // Handle JSON surrounded by Markdown code fences, if present.
   text = text
     .replace(/^```(?:json)?\s*/i, "")
     .replace(/\s*```$/, "")
@@ -80,28 +82,42 @@ function parseGeminiJson(responseText) {
   try {
     return JSON.parse(text);
   } catch {
-    throw new Error("Gemini returned an invalid JSON response.");
+    throw new Error("OpenRouter returned an invalid JSON response.");
   }
 }
 
 async function generateJson(prompt) {
-  if (!process.env.GEMINI_API_KEY) {
-    throw new Error("The Gemini API key is not configured.");
+  if (!process.env.OPENROUTER_API_KEY) {
+    throw new Error("The OpenRouter API key is not configured.");
   }
 
-  const response = await ai.models.generateContent({
-    model: GEMINI_MODEL,
-    contents: prompt,
-    config: {
-      responseMimeType: "application/json",
-      temperature: 0.2,
-      thinkingConfig: {
-        thinkingLevel: "LOW",
+  const response = await ai.chat.completions.create({
+    model: OPENROUTER_MODEL,
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are a precise resume analysis assistant. " +
+          "Follow the user's instructions and return valid JSON only.",
       },
+      {
+        role: "user",
+        content: prompt,
+      },
+    ],
+    response_format: {
+      type: "json_object",
     },
+    temperature: 0.2,
   });
 
-  return parseGeminiJson(response.text);
+  const responseText = response.choices?.[0]?.message?.content;
+
+  if (typeof responseText !== "string" || !responseText.trim()) {
+    throw new Error("OpenRouter returned an empty response.");
+  }
+
+  return parseAIJson(responseText);
 }
 
 async function extractPdfText(file) {
@@ -279,7 +295,7 @@ ${resumeText}
           strengths: row.strengths,
           improvements: row.improvements,
           createdAt: row.created_at,
-          method: "gemini",
+          method: "openrouter",
         },
       });
     } catch (error) {

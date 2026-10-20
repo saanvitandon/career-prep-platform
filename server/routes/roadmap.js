@@ -1,19 +1,22 @@
-
 import express from "express";
-import { GoogleGenAI } from "@google/genai";
+import OpenAI from "openai";
+
 import { pool } from "../db.js";
 import { authMiddleware } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-  httpOptions: {
-    timeout: 60000,
+const ai = new OpenAI({
+  baseURL: "https://openrouter.ai/api/v1",
+  apiKey: process.env.OPENROUTER_API_KEY,
+  timeout: 120000,
+  defaultHeaders: {
+    "X-OpenRouter-Title": "Ascend AI Prep",
   },
 });
 
-const MODEL = "gemini-3.8-flash";
+const MODEL =
+  process.env.OPENROUTER_MODEL || "openai/gpt-4o-mini";
 
 const VALID_LEVELS = [
   "Complete beginner",
@@ -45,17 +48,16 @@ const VALID_PRIORITIES = [
   "Learn fundamentals",
 ];
 
-// Retry temporary Gemini API failures.
 const sleep = (ms) =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
-async function generateWithRetry(generateRequest, maxRetries = 3) {
+async function generateWithRetry(generateRequest, maxRetries = 2) {
   for (let attempt = 0; ; attempt++) {
     try {
       return await generateRequest();
     } catch (error) {
       const status = Number(error.status ?? error.code);
-      const isTemporary = [429, 500, 503, 504].includes(status);
+      const isTemporary = [408, 429, 500, 502, 503, 504].includes(status);
 
       if (!isTemporary || attempt >= maxRetries) {
         throw error;
@@ -64,7 +66,7 @@ async function generateWithRetry(generateRequest, maxRetries = 3) {
       const delay = 1000 * 2 ** attempt;
 
       console.warn(
-        `Gemini returned ${status}. Retrying in ${
+        `OpenRouter returned ${status}. Retrying in ${
           delay / 1000
         }s (attempt ${attempt + 1}/${maxRetries})...`
       );
@@ -288,7 +290,7 @@ router.get("/", authMiddleware, async (req, res) => {
 });
 
 // POST /api/roadmap/generate
-// Generate a personalized roadmap with Gemini and save it.
+// Generate a personalized roadmap with OpenRouter and save it.
 router.post("/generate", authMiddleware, async (req, res) => {
   try {
     const validationError = validateCriteria(req.body);
@@ -300,10 +302,10 @@ router.post("/generate", authMiddleware, async (req, res) => {
       });
     }
 
-    if (!process.env.GEMINI_API_KEY) {
+    if (!process.env.OPENROUTER_API_KEY) {
       return res.status(500).json({
         success: false,
-        message: "GEMINI_API_KEY is not configured on the server.",
+        message: "OPENROUTER_API_KEY is not configured on the server.",
       });
     }
 
@@ -368,23 +370,33 @@ Use this exact JSON structure:
 `;
 
     const response = await generateWithRetry(() =>
-      ai.models.generateContent({
+      ai.chat.completions.create({
         model: MODEL,
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-          temperature: 0.7,
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a practical career mentor. Return valid JSON only, following the requested schema exactly.",
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        response_format: {
+          type: "json_object",
         },
+        temperature: 0.7,
       })
     );
 
-    const responseText = response.text;
+    const responseText = response.choices?.[0]?.message?.content;
 
     if (
       typeof responseText !== "string" ||
       !responseText.trim()
     ) {
-      throw new Error("Gemini returned an empty response.");
+      throw new Error("OpenRouter returned an empty response.");
     }
 
     let parsed;
@@ -392,7 +404,7 @@ Use this exact JSON structure:
     try {
       parsed = JSON.parse(responseText);
     } catch {
-      throw new Error("Gemini returned invalid JSON.");
+      throw new Error("OpenRouter returned invalid JSON.");
     }
 
     const roadmap = normalizeRoadmap(parsed, expectedWeeks);
