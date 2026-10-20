@@ -352,7 +352,7 @@ app.get("/api/dashboard", authMiddleware, async (req, res) => {
 app.get("/api/gemini-test", async (req, res) => {
   try {
     const response = await ai.interactions.create({
-      model: "gemini-3.7-flash",
+      model: "gemini-3.8-flash",
       input: "Reply with exactly: Gemini connection successful.",
     });
 

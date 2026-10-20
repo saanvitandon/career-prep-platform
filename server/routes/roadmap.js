@@ -13,7 +13,7 @@ const ai = new GoogleGenAI({
   },
 });
 
-const MODEL = "gemini-3.7-flash";
+const MODEL = "gemini-3.8-flash";
 
 const VALID_LEVELS = [
   "Complete beginner",

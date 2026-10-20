@@ -275,7 +275,7 @@ INSTRUCTIONS:
 `;
 
     const response = await ai.interactions.create({
-      model: "gemini-3.7-flash",
+      model: "gemini-3.8-flash",
       input: prompt,
       generation_config: {
         max_output_tokens: 1400,
