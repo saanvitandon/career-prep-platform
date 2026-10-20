@@ -213,7 +213,7 @@ function Roadmap() {
     setSaveMessage("");
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 75000);
+    const timeoutId = setTimeout(() => controller.abort(), 150000);
 
     try {
       const response = await fetch(`${API_URL}/generate`, {

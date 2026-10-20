@@ -15,7 +15,8 @@ if (!process.env.GEMINI_API_KEY) {
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
   httpOptions: {
-    timeout: 60000,
+    timeout: 120000,
+    headers: {},
   },
 });
 
