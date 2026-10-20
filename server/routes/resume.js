@@ -95,6 +95,9 @@ async function generateJson(prompt) {
     config: {
       responseMimeType: "application/json",
       temperature: 0.2,
+      thinkingConfig: {
+        thinkingLevel: "LOW",
+      },
     },
   });
 
