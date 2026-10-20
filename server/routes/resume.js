@@ -41,7 +41,7 @@ const upload = multer({
   },
 });
 
-const GEMINI_MODEL = "gemini-3.8-flash";
+const GEMINI_MODEL = "gemini-3.7-flash";
 
 function clampScore(value) {
   const number = Number(value);

@@ -13,7 +13,7 @@ const ai = new GoogleGenAI({
   },
 });
 
-const MODEL = "gemini-3.8-flash";
+const MODEL = "gemini-3.7-flash";
 
 const VALID_DIFFICULTIES = ["Easy", "Medium", "Hard"];
 const VALID_QUESTION_TYPES = ["Technical", "Behavioral", "HR"];
