@@ -2,7 +2,7 @@
 
 Ascend is an AI-powered career preparation platform that helps students prepare for internships and placements through resume analysis, job description matching, interview preparation, personalized learning roadmaps, and AI-powered document assistance.
 
-**[Try Ascend here](https://ascend-ai-prep.vercel.app/dashboard)**
+**[Try Ascend here](https://ascend-ai-prep.vercel.app)**
 
 ## Features
 
