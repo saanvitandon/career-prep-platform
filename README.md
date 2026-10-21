@@ -10,7 +10,7 @@ Ascend is an AI-powered career preparation platform that helps students prepare 
 - **Resume–Job Description Matcher** — Evaluates how well a resume aligns with a job description, identifying matching skills, missing skills, and areas for improvement.
 - **Interview Preparation** — Generates AI-powered interview questions to help students practice for technical and behavioral interviews.
 - **Personalized Learning Roadmap** — Helps students structure their career preparation with personalized learning plans.
-- **PDF Question Answering** — Allows users to upload PDF documents and ask questions about their content using Retrieval-Augmented Generation (RAG) with keyword-based text retrieval and Gemini-generated answers.
+- **PDF Question Answering** — Allows users to upload PDF documents and ask questions about their content using Retrieval-Augmented Generation (RAG) with keyword-based text retrieval and OpenRouter-generated answers.
 - **AI Career Assistant** — Provides AI-powered assistance for career preparation.
 - **User Dashboard** — Provides centralized access to the platform's career preparation tools.
 - **User Authentication** — Supports registration, login, JWT-based authentication, and protected API endpoints.
